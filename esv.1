@@ -1,0 +1,93 @@
+.Dd $Mdocdate: March 23 2023 $
+.Dt ESV 1
+.Os
+.Sh NAME
+.Nm esv
+.Nd read the Bible from your terminal
+.Sh SYNOPSIS
+.Nm esv
+.Bk -words
+.Op Fl C Ar config
+.Op Fl l Ar length
+.Op Fl aFfHhNnRrV
+.Ar book verses
+.Ek
+.Sh DESCRIPTION
+.Nm
+is a program that displays passages of the Bible on your terminal.
+It can also play recorded audio tracks of certain passages,
+through integration with the
+.Xr mpg123 1
+utility.
+If a text passage is too long for standard display on a terminal,
+.Nm
+will put it through a text pager (default less) in order for you to be able to
+scroll through the text with ease. This behaviour can be disabled by passing
+the
+.Fl P
+flag.
+.Pp
+The options are as follows:
+.Bl -tag -width keyword
+.It Fl a
+Instead of displaying text passages, play a recorded audio track.
+.It Fl C Ar config
+Use
+.Ar config
+as the configuration file path. This overrides the
+.Ev ESV_CONFIG
+environment variable (see section
+.Sx ENVIRONMENT ) .
+.It Fl F
+Exclude footnotes.
+.It Fl f
+Include footnotes (the default).
+.It Fl H
+Exclude headings.
+.It Fl h
+Include headings (the default).
+.It Fl l Ar length
+Use
+.Ar length
+as the maximum line length.
+.It Fl N
+Exclude verse numbers.
+.It Fl n
+Include verse numbers (the default).
+.It Fl P
+If the passage is over 32 lines long, don't
+pipe it into a pager.
+.It Fl R
+Exclude passage references.
+.It Fl r
+Include passage references (the default).
+.It Fl V
+Print the version number and exit.
+.Sh ENVIRONMENT
+.Bl -tag -width ESV_CONFIG
+.It Ev ESV_CONFIG
+Where to read the configuration file, rather than using the default location (see section
+.Sx FILES ) .
+.It Ev ESV_PAGER
+What pager to use when the passage is over 32 lines long, rather than using
+the
+.Ic less
+utility.
+.Sh FILES
+.Bl -tag -width ~/.config/esv.conf
+.It Pa ~/.config/esv.conf
+default configuration file location
+.El
+
+.Sh EXAMPLES
+Read Psalm 23:
+.Pp
+.Dl esv Psalm 23
+.Pp
+Listen to a recorded audio track of Matthew 5-7:
+.Pp
+.Dl esv -a Matthew 5-7
+.Pp
+
+.Sh SEE ALSO
+.Xr esv.conf 5

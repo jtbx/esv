@@ -1,0 +1,67 @@
+.Dd $Mdocdate: March 23 2023 $
+.Dt ESV.CONF 5
+.Os
+.Sh NAME
+.Nm esv.conf
+.Nd configuration file for esv
+.Sh DESCRIPTION
+The
+.Xr esv 1
+utility uses a configuration file to customize its behaviour.
+This file uses the standard Unix configuration file format, with
+section-based key-value pairs. An example is listed below:
+.Pp
+.Dl [section]
+.Dl key = value
+.Pp
+Comments can be used by putting a pound
+.Dq #
+symbol at the beginning of a line.
+.Pp
+The available configuration options are as follows:
+.Bl -tag -width keyword
+.It Sy [passage]
+The
+.Sy [passage]
+section contains settings that modify the way passages are displayed.
+.Bl -tag -width keyword
+.It Em footnotes
+Boolean value that determines whether or not footnotes are displayed
+under the text.
+.It Em headings
+Boolean value that determines whether or not headings are displayed.
+.It Em passage_references
+Boolean value that determines whether or not passage references are
+displayed before the text.
+.It Em verse_numbers
+Boolean value that determines whether or not verse numbers are displayed.
+.It Em line_length
+Integer value that determines the maximum length for each line of
+the passage.
+.El
+.It Sy [api]
+The
+.Sy [api]
+section contains settings that determine information
+passed to the ESV Bible API.
+.Bl -tag -width -keyword
+.It Em key
+Your API key, available from
+.Lk http://api.esv.org
+.Pp
+This key is required, and is automatically filled in.
+.It Em parameters
+Optional HTTP parameters passed to the API.
+If you are using this, make sure it starts with an ampersand symbol
+.Dq & .
+.El
+.El
+
+.Sh FILES
+.Bl -tag -width ~/.config/esv.conf
+.It Pa ~/.config/esv.conf
+default configuration file location
+.El
+
+.Sh SEE ALSO
+.Xr esv 1
