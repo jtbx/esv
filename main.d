@@ -222,9 +222,13 @@ int main(string[] args)
 			~ "' is not convertible to an integer value; must be a non-decimal number");
 	} catch (IniException e) {} // just do nothing; use the default setting
 
-	if (optNoFootnotes)         esv.opts.boolOpts["include_footnotes"] = false;
-	if (optNoHeadings)          esv.opts.boolOpts["include_headings"] = false;
-	if (optNoVerseNumbers)      esv.opts.boolOpts["include_verse_numbers"] = false;
+	if (optFootnotes)           esv.opts.boolOpts["include_footnotes"]          = true;
+	if (optHeadings)            esv.opts.boolOpts["include_headings"]           = true;
+	if (optVerseNumbers)        esv.opts.boolOpts["include_verse_numbers"]      = true;
+	if (optPassageReferences)   esv.opts.boolOpts["include_passage_references"] = true;
+	if (optNoFootnotes)         esv.opts.boolOpts["include_footnotes"]          = false;
+	if (optNoHeadings)          esv.opts.boolOpts["include_headings"]           = false;
+	if (optNoVerseNumbers)      esv.opts.boolOpts["include_verse_numbers"]      = false;
 	if (optNoPassageReferences) esv.opts.boolOpts["include_passage_references"] = false;
 	if (optLineLength != 0)     esv.opts.intOpts ["line_length"] = optLineLength;
 
