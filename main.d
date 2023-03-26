@@ -33,6 +33,7 @@ import dini;
 enum VERSION = "0.1.0";
 
 enum DEFAULT_CONFIGPATH = "~/.config/esv.conf";
+enum DEFAULT_MPEGPLAYER = "mpg123";
 enum DEFAULT_PAGER      = "less";
 
 enum ENV_CONFIG = "ESV_CONFIG";
@@ -170,13 +171,23 @@ int main(string[] args)
 
 	if (optAudio) {
 		// check for mpg123
-		if (executeShell("which mpg123 >/dev/null 2>&1").status > 0) {
-			panic("mpg123 is required for audio mode; cannot continue");
+		if (executeShell("which " ~ DEFAULT_MPEGPLAYER ~ " >/dev/null 2>&1").status > 0) {
+			panic(DEFAULT_MPEGPLAYER ~ " is required for audio mode; cannot continue");
 			return 1;
 		} else {
 			string tmpf = esv.getAudioVerses(args[1], args[2]);
+			string mpegPlayer;
+			// esv has built-in support for mpg123 and mpv
+			// other players will work, just recompile with
+			// the DEFAULT_MPEGPLAYER enum set differently
+			if (DEFAULT_MPEGPLAYER == "mpg123")
+				mpegPlayer = DEFAULT_MPEGPLAYER ~ " -q ";
+			else if (DEFAULT_MPEGPLAYER == "mpv")
+				mpegPlayer = DEFAULT_MPEGPLAYER ~ " --msg-level=all=no ";
+			else
+				mpegPlayer = DEFAULT_MPEGPLAYER ~ " ";
 			// spawn mpg123
-			executeShell("mpg123 -q " ~ tmpf);
+			executeShell(mpegPlayer ~ tmpf);
 			return 0;
 		}
 	}
