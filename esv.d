@@ -45,7 +45,7 @@ import std.utf       : toUTF8;
 import std.net.curl;
 
 const enum ESVAPI_URL = "https://api.esv.org/v3/passage";
-const string[] BIBLE_BOOKS = [
+const string[] ESVAPI_BIBLE_BOOKS = [
 	// Old Testament
 	"Genesis",
 	"Exodus",
@@ -193,7 +193,7 @@ class EsvAPI
 	 */
 	final bool validateBook(const string book) const nothrow
 	{
-		foreach (string b; BIBLE_BOOKS)
+		foreach (string b; ESVAPI_BIBLE_BOOKS)
 		{
 			if (book.capitalize() == b.capitalize())
 				return true;
