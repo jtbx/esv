@@ -6,7 +6,7 @@ PREFIX    = /usr/local
 MANPREFIX = /usr/share/man
 
 DC     = ldc2
-CFLAGS = -Os -I${IMPORT}
+CFLAGS = -O -I${IMPORT}
 OBJS   = main.o esv.o ini.o
 
 ifeq (${DEBUG},)
