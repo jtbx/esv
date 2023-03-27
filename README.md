@@ -66,12 +66,12 @@ All documentation is contained in the manual pages. To access them, you can run
 
 ## Copying
 
-Copying, modifying and redistributing all files part of this software except esv.d is permitted
-as long as your changed conform to the GNU General Public License version 2.
+Copying, modifying and redistributing this software is permitted
+as long as your modified version conforms to the GNU General Public License version 2.
 
-The file esv.d is a reusable library. It is covered under the BSD 3-Clause License.
+The file esv.d is a reusable library.
 
-In both cases, the licenses are contained in the file COPYING.
+The license is contained in the file COPYING.
 
 This software uses a modified version of a library named "dini". This is released under
 the Boost Software License version 1.0, which can be found in import/dini/LICENSE.
