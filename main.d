@@ -30,8 +30,9 @@ import std.string  : splitLines;
 import esv;
 import dini;
 
-enum VERSION = "0.1.0";
+enum VERSION = "0.2.0";
 
+enum DEFAULT_APIKEY     = "abfb7456fa52ec4292c79e435890cfa3df14dc2b"; // crossway approved ;)
 enum DEFAULT_CONFIGPATH = "~/.config/esv.conf";
 enum DEFAULT_MPEGPLAYER = "mpg123";
 enum DEFAULT_PAGER      = "less";
@@ -133,7 +134,7 @@ int main(string[] args)
 
 # An API key is required to access the ESV Bible API.
 [api]
-#key = My API key here
+key = " ~ DEFAULT_APIKEY ~ "
 # If you really need to, you can specify
 # custom API parameters using `parameters`:
 #parameters = &my-parameter=value
