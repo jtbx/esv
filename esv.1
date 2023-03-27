@@ -18,11 +18,16 @@ is a program that displays passages of the Bible on your terminal.
 It can also play recorded audio tracks of certain passages,
 through integration with the
 .Xr mpg123 1
-utility.
+utility. While audio is playing, you can use the standard mpg123
+controls: spacebar to pause/resume, comma to rewind, period
+to fast-forward, etc. Read about the
+.Fl C
+option in mpg123's manual for more information.
+.Pp
 If a text passage is too long for standard display on a terminal,
 .Nm
 will put it through a text pager (default less) in order for you to be able to
-scroll through the text with ease. This behaviour can be disabled by passing
+scroll through the text. This behaviour can be disabled by passing
 the
 .Fl P
 flag.
@@ -73,6 +78,11 @@ What pager to use when the passage is over 32 lines long, rather than using
 the
 .Ic less
 utility.
+.It Ev ESV_PLAYER
+What MP3 player to use for playing audio, rather than using mpg123.
+Using mpg123 is recommended over other players such as mpv, because
+mpv's controls don't work well when started by another process
+for some reason.
 .Sh FILES
 .Bl -tag -width ~/.config/esv.conf
 .It Pa ~/.config/esv.conf

@@ -38,6 +38,7 @@ enum DEFAULT_PAGER      = "less";
 
 enum ENV_CONFIG = "ESV_CONFIG";
 enum ENV_PAGER  = "ESV_PAGER";
+enum ENV_PLAYER = "ESV_PLAYER";
 
 bool   optAudio;
 string optConfigPath;
@@ -175,14 +176,15 @@ int main(string[] args)
 			return 1;
 		} else {
 			string tmpf = esv.getAudioVerses(args[1], args[2]);
-			string mpegPlayer;
+			string mpegPlayer = environment.get(ENV_PLAYER, DEFAULT_MPEGPLAYER);
 			// esv has built-in support for mpg123 and mpv
 			// other players will work, just recompile with
 			// the DEFAULT_MPEGPLAYER enum set differently
-			if (DEFAULT_MPEGPLAYER == "mpg123")
-				mpegPlayer = DEFAULT_MPEGPLAYER ~ " -q ";
-			else if (DEFAULT_MPEGPLAYER == "mpv")
-				mpegPlayer = DEFAULT_MPEGPLAYER ~ " --msg-level=all=no ";
+			// or use the ESV_PLAYER environment variable
+			if (mpegPlayer == "mpg123")
+				mpegPlayer = mpegPlayer ~ " -q ";
+			else if (mpegPlayer == "mpv")
+				mpegPlayer = mpegPlayer ~ " --msg-level=all=no ";
 			else
 				mpegPlayer = DEFAULT_MPEGPLAYER ~ " ";
 			// spawn mpg123
