@@ -120,13 +120,12 @@ int main(string[] args)
 				configPath = optConfigPath.expandTilde();
 			else
 				panic(optConfigPath ~ ": invalid file path");
-		} else if (configEnvVar !is null) {
-			if (configEnvVar.isValidPath())
-				configPath = configEnvVar.expandTilde();
+		} else {
+			configPath = environment.get(ENV_CONFIG, DEFAULT_CONFIGPATH);
+			if (configPath.isValidPath())
+				configPath = configPath.expandTilde();
 			else
 				panic(configEnvVar ~ ": invalid file path");
-		} else {
-			configPath = DEFAULT_CONFIGPATH.expandTilde();
 			if (!configPath.exists()) {
 				configPath.write(
 "# Default esv configuration file.
