@@ -1,26 +1,25 @@
-PROG      = esv
 IMPORT    = import
 PREFIX    = /usr/local
 MANPREFIX = /usr/share/man
 
 DC     = ldc2
-CFLAGS = -O -I${IMPORT}
+CFLAGS = -O -I${IMPORT} -w
 OBJS   = main.o esv.o ini.o
 
 all: esv
 
 esv: ${OBJS}
-	${DC} ${CFLAGS} -of=${PROG} ${OBJS}
+	${DC} ${CFLAGS} -of$@ ${OBJS}
 
 # main executable
 main.o: main.d esv.o
-	${DC} -c ${CFLAGS} main.d -of=main.o
+	${DC} ${CFLAGS} -c main.d -of$@
 
 esv.o: esv.d
-	${DC} -c -i ${CFLAGS} esv.d -of=esv.o
+	${DC} ${CFLAGS} -c esv.d -of$@
 
 ini.o: ${IMPORT}/dini/*.d
-	${DC} -c -i ${CFLAGS} ${IMPORT}/dini/*.d -of=ini.o
+	${DC} ${CFLAGS} -c ${IMPORT}/dini/*.d -of$@
 
 clean:
 	rm -f ${PROG} ${OBJS}
