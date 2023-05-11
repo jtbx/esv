@@ -23,7 +23,7 @@ import std.file    : exists, write, FileException;
 import std.getopt  : getopt, GetOptException, config;
 import std.path    : baseName, expandTilde, isValidPath;
 import std.process : environment, executeShell;
-import std.regex   : regex, matchFirst, replaceFirst;
+import std.regex   : regex, matchFirst, replaceAll, replaceFirst;
 import std.stdio   : writef, writeln, writefln, stderr;
 import std.string  : splitLines;
 
@@ -165,7 +165,7 @@ key = " ~ DEFAULT_APIKEY ~ "
 
 	// Initialise API object and validate the book and verse
 	EsvAPI esv = new EsvAPI(apiKey);
-	if (!esv.validateBook(args[1]))
+	if (!esv.validateBook(args[1].extractBook()))
 		panic("book '" ~ args[1] ~ "' does not exist");
 	if (!esv.validateVerse(args[2]))
 		panic("invalid verse format '" ~ args[2] ~ "'");
@@ -209,9 +209,9 @@ key = " ~ DEFAULT_APIKEY ~ "
 		try {
 			esv.opts.boolOpts["include_" ~ key] =
 				returnValid("true", iniData["passage"].getKey(key)).catchConvException(
-					(ConvException ex, string str)
+					(in ConvException ex, in char[] str)
 					{
-						panic(configPath ~ ": value '" ~ str ~
+						panic(configPath ~ ": value '" ~ cast(string)str ~
 								"' is not convertible to a boolean value; must be either 'true' or 'false'");
 					}
 				);
@@ -234,7 +234,7 @@ key = " ~ DEFAULT_APIKEY ~ "
 	if (optNoPassageReferences) esv.opts.boolOpts["include_passage_references"] = false;
 	if (optLineLength != 0)     esv.opts.intOpts ["line_length"] = optLineLength;
 
-	string verses = esv.getVerses(args[1], args[2]);
+	string verses = esv.getVerses(args[1].extractBook(), args[2]);
 	int lines;
 	foreach (string line; verses.splitLines())
 		++lines;
@@ -253,9 +253,9 @@ key = " ~ DEFAULT_APIKEY ~ "
 		catch (ProcessException e) {
 			if (!e.msg.matchFirst(regex("^Executable file not found")).empty) {
 				panic(e.msg
-						.matchFirst(": (.+)$")[0]
-						.replaceFirst(regex("^: "), "")
-						~ ": command not found"
+					.matchFirst(": (.+)$")[0]
+					.replaceFirst(regex("^: "), "")
+					~ ": command not found"
 				);
 			}
 		}
@@ -265,12 +265,17 @@ key = " ~ DEFAULT_APIKEY ~ "
 	return 0;
 }
 
-string extractOpt(GetOptException e) @safe
+string extractOpt(in GetOptException e) @safe
 {
 	return e.msg.matchFirst("-.")[0];
 }
 
-bool catchConvException(string sb, void delegate(ConvException ex, string str) catchNet)
+string extractBook(in string book) @safe
+{
+	return book.replaceAll(regex("[-_]"), " ");
+}
+
+bool catchConvException(in char[] sb, void delegate(in ConvException ex, in char[] str) @system catchNet)
 {
 	try return sb.to!bool();
 	catch (ConvException e) {

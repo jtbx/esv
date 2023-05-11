@@ -34,7 +34,7 @@ import std.utf       : toUTF8;
 import std.net.curl;
 
 const enum ESVAPI_URL = "https://api.esv.org/v3/passage";
-const string[] ESVAPI_BIBLE_BOOKS = [
+const string[] BIBLE_BOOKS = [
 	// Old Testament
 	"Genesis",
 	"Exodus",
@@ -44,12 +44,12 @@ const string[] ESVAPI_BIBLE_BOOKS = [
 	"Joshua",
 	"Judges",
 	"Ruth",
-	"1_Samuel",
-	"2_Samuel",
-	"1_Kings",
-	"2_Kings",
-	"1_Chronicles",
-	"2_Chronicles",
+	"1 Samuel",
+	"2 Samuel",
+	"1 Kings",
+	"2 Kings",
+	"1 Chronicles",
+	"2 Chronicles",
 	"Ezra",
 	"Nehemiah",
 	"Esther",
@@ -58,7 +58,7 @@ const string[] ESVAPI_BIBLE_BOOKS = [
 	"Psalms", // <- both are valid
 	"Proverbs",
 	"Ecclesiastes",
-	"Song_of_Solomon",
+	"Song of Solomon",
 	"Isaiah",
 	"Jeremiah",
 	"Lamentations",
@@ -83,25 +83,25 @@ const string[] ESVAPI_BIBLE_BOOKS = [
 	"John",
 	"Acts",
 	"Romans",
-	"1_Corinthians",
-	"2_Corinthians",
+	"1 Corinthians",
+	"2 Corinthians",
 	"Galatians",
 	"Ephesians",
 	"Philippians",
 	"Colossians",
-	"1_Thessalonians",
-	"2_Thessalonians",
-	"1_Timothy",
-	"2_Timothy",
+	"1 Thessalonians",
+	"2 Thessalonians",
+	"1 Timothy",
+	"2 Timothy",
 	"Titus",
 	"Philemon",
 	"Hebrews",
 	"James",
-	"1_Peter",
-	"2_Peter",
-	"1_John",
-	"2_John",
-	"3_John",
+	"1 Peter",
+	"2 Peter",
+	"1 John",
+	"2 John",
+	"3 John",
 	"Jude",
 	"Revelation"
 ];
@@ -182,7 +182,7 @@ class EsvAPI
 	 */
 	final bool validateBook(in char[] book) const nothrow @safe
 	{
-		foreach (string b; ESVAPI_BIBLE_BOOKS)
+		foreach (string b; BIBLE_BOOKS)
 		{
 			if (book.capitalize() == b.capitalize())
 				return true;
@@ -228,7 +228,7 @@ class EsvAPI
 			throw new EsvException("Invalid verse format");
 
 		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(_url, _mode,
-				book.capitalize().replaceAll(regex("_"), "+"), verse, assembleParameters(), extraParameters);
+				book.capitalize().replaceAll(regex(" "), "+"), verse, assembleParameters(), extraParameters);
 		auto request = HTTP(apiURL);
 		string response;
 		request.onProgress = onProgress;
@@ -257,7 +257,7 @@ class EsvAPI
 		if (!validateVerse(verse))
 			throw new EsvException("Invalid verse format");
 
-		string apiURL = format!"%s/audio/?q=%s+%s"(_url, book.capitalize().replaceAll(regex("_"), "+"), verse);
+		string apiURL = format!"%s/audio/?q=%s+%s"(_url, book.capitalize().replaceAll(regex(" "), "+"), verse);
 		auto request = HTTP(apiURL);
 		ubyte[] response;
 		request.onProgress = onProgress;
