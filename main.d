@@ -265,7 +265,7 @@ key = " ~ DEFAULT_APIKEY ~ "
 	return 0;
 }
 
-string extractOpt(GetOptException e)
+string extractOpt(GetOptException e) @safe
 {
 	return e.msg.matchFirst("-.")[0];
 }
