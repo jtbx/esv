@@ -115,7 +115,7 @@ class EsvAPI
 	string extraParameters;
 	int delegate(size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) onProgress;
 	string tmpDir;
-	this(const string key)
+	this(in string key)
 	{
 		this._url  = ESVAPI_URL;
 		this._key  = key;
@@ -128,19 +128,19 @@ class EsvAPI
 	/*
 	 * Returns the API URL currently in use.
 	 */
-	final string getURL() const nothrow
+	final string getURL() const nothrow @nogc @safe
 	{
 		return _url;
 	}
 	/*
 	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
-	 * to the given url argument. Otherwise, throws a UrlException.
+	 * to the given url argument. Otherwise, throws an EsvException .
 	 */
-	final void setURL(const string url)
+	final void setURL(in string url) @safe
 	{
 		auto matches = url.matchAll("^https?://.+\\..+(/.+)?");
 		if (matches.empty)
-			throw new UrlException("Invalid URL format");
+			throw new EsvException("Invalid URL format");
 		else
 			this._url = url;
 	}
@@ -148,14 +148,14 @@ class EsvAPI
 	 * Returns the API authentication key that was given when the API object was instantiated.
 	 * This authentication key cannot be changed after instantiation.
 	 */
-	final string getKey() const nothrow
+	final string getKey() const nothrow @nogc @safe
 	{
 		return _key;
 	}
 	/*
 	 * Returns the API authentication key currently in use.
 	 */
-	final string getMode() const nothrow
+	final string getMode() const nothrow @nogc @safe
 	{
 		return _mode;
 	}
@@ -165,7 +165,7 @@ class EsvAPI
 	 * If the mode argument is not one of those,
 	 * then this function will do nothing.
 	 */
-	final void setMode(const string mode) nothrow
+	final void setMode(in string mode) nothrow @nogc @safe
 	{
 		foreach (string m; ["text", "html"] )
 		{
@@ -180,7 +180,7 @@ class EsvAPI
 	 * Returns true if the argument book is a valid book of the Bible.
 	 * Otherwise, returns false.
 	 */
-	final bool validateBook(const string book) const nothrow
+	final bool validateBook(in string book) const nothrow @safe
 	{
 		foreach (string b; ESVAPI_BIBLE_BOOKS)
 		{
@@ -193,9 +193,9 @@ class EsvAPI
 	 * Returns true if the argument book is a valid verse format.
 	 * Otherwise, returns false.
 	 */
-	final bool validateVerse(const string verse) const
+	final bool validateVerse(in string verse) const @safe
 	{
-		bool attemptRegex(const string re) const
+		bool attemptRegex(string re) const @safe
 		{
 			auto matches = verse.matchAll(re);
 			return !matches.empty;
@@ -220,12 +220,12 @@ class EsvAPI
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getVerses(const string book, const string verse) const
+	final string getVerses(in string book, in string verse) const
 	{
 		if (!this.validateBook(book))
-			throw new EsvPassageException("Invalid book");
+			throw new EsvException("Invalid book");
 		if (!this.validateVerse(verse))
-			throw new EsvPassageException("Invalid verse format");
+			throw new EsvException("Invalid verse format");
 
 		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(this._url, this._mode,
 				book.capitalize().replaceAll(regex("_"), "+"), verse, this.assembleParameters(), this.extraParameters);
@@ -250,12 +250,12 @@ class EsvAPI
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getAudioVerses(const string book, const string verse)
+	final string getAudioVerses(in string book, in string verse) const
 	{
 		if (!this.validateBook(book))
-			throw new EsvPassageException("Invalid book");
+			throw new EsvException("Invalid book");
 		if (!this.validateVerse(verse))
-			throw new EsvPassageException("Invalid verse format");
+			throw new EsvException("Invalid verse format");
 
 		string apiURL = format!"%s/audio/?q=%s+%s"(this._url, book.capitalize().replaceAll(regex("_"), "+"), verse);
 		auto request = HTTP(apiURL);
@@ -272,7 +272,7 @@ class EsvAPI
 		tmpFile.write(response);
 		return tmpFile;
 	}
-	private string assembleParameters() const
+	private string assembleParameters() const @safe
 	{
 		string params = "";
 		string addParam(string param, string value) const
@@ -317,7 +317,7 @@ struct EsvAPIOptions
 	bool[string] boolOpts;
 	int[string] intOpts;
 	string indent_using;
-	void setDefaults() nothrow
+	void setDefaults() nothrow @safe
 	{
 		this.boolOpts["include_passage_references"]       = true;
 		this.boolOpts["include_verse_numbers"]            = true;
@@ -341,15 +341,7 @@ struct EsvAPIOptions
 	}
 }
 
-class UrlException : Exception
-{
-	this(string msg, string file = __FILE__, size_t line = __LINE__) @safe pure
-	{
-		super(msg, file, line);
-	}
-}
-
-class EsvPassageException : Exception
+class EsvException : Exception
 {
 	this(string msg, string file = __FILE__, size_t line = __LINE__) @safe pure
 	{
