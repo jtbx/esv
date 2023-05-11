@@ -115,15 +115,15 @@ class EsvAPI
 	string extraParameters;
 	int delegate(size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) onProgress;
 	string tmpDir;
-	this(in string key)
+	this(immutable(string) key)
 	{
-		this._url  = ESVAPI_URL;
-		this._key  = key;
-		this._mode = "text";
-		this.opts.setDefaults();
-		this.extraParameters = "";
-		this.onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) {return 0;};
-		this.tmpDir = tempDir() ~ "esvapi";
+		_url  = ESVAPI_URL;
+		_key  = key;
+		_mode = "text";
+		opts.setDefaults();
+		extraParameters = "";
+		onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) {return 0;};
+		tmpDir = tempDir() ~ "esvapi";
 	}
 	/*
 	 * Returns the API URL currently in use.
@@ -136,13 +136,13 @@ class EsvAPI
 	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
 	 * to the given url argument. Otherwise, throws an EsvException .
 	 */
-	final void setURL(in string url) @safe
+	final void setURL(immutable(string) url) @safe
 	{
 		auto matches = url.matchAll("^https?://.+\\..+(/.+)?");
 		if (matches.empty)
 			throw new EsvException("Invalid URL format");
 		else
-			this._url = url;
+			_url = url;
 	}
 	/*
 	 * Returns the API authentication key that was given when the API object was instantiated.
@@ -165,13 +165,13 @@ class EsvAPI
 	 * If the mode argument is not one of those,
 	 * then this function will do nothing.
 	 */
-	final void setMode(in string mode) nothrow @nogc @safe
+	final void setMode(immutable(string) mode) nothrow @nogc @safe
 	{
 		foreach (string m; ["text", "html"] )
 		{
 			if (mode == m)
 			{
-				this._mode = mode;
+				_mode = mode;
 				return;
 			}
 		}
@@ -180,7 +180,7 @@ class EsvAPI
 	 * Returns true if the argument book is a valid book of the Bible.
 	 * Otherwise, returns false.
 	 */
-	final bool validateBook(in string book) const nothrow @safe
+	final bool validateBook(in char[] book) const nothrow @safe
 	{
 		foreach (string b; ESVAPI_BIBLE_BOOKS)
 		{
@@ -193,7 +193,7 @@ class EsvAPI
 	 * Returns true if the argument book is a valid verse format.
 	 * Otherwise, returns false.
 	 */
-	final bool validateVerse(in string verse) const @safe
+	final bool validateVerse(in char[] verse) const @safe
 	{
 		bool attemptRegex(string re) const @safe
 		{
@@ -220,24 +220,24 @@ class EsvAPI
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getVerses(in string book, in string verse) const
+	final string getVerses(in char[] book, in char[] verse) const
 	{
-		if (!this.validateBook(book))
+		if (!validateBook(book))
 			throw new EsvException("Invalid book");
-		if (!this.validateVerse(verse))
+		if (!validateVerse(verse))
 			throw new EsvException("Invalid verse format");
 
-		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(this._url, this._mode,
-				book.capitalize().replaceAll(regex("_"), "+"), verse, this.assembleParameters(), this.extraParameters);
+		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(_url, _mode,
+				book.capitalize().replaceAll(regex("_"), "+"), verse, assembleParameters(), extraParameters);
 		auto request = HTTP(apiURL);
 		string response;
-		request.onProgress = this.onProgress;
+		request.onProgress = onProgress;
 		request.onReceive = (ubyte[] data)
 		{
 			response = cast(string)data;
 			return data.length;
 		};
-		request.addRequestHeader("Authorization", "Token " ~ this._key);
+		request.addRequestHeader("Authorization", "Token " ~ _key);
 		request.perform();
 		return response.parseJSON()["passages"][0].str;
 	}
@@ -250,23 +250,23 @@ class EsvAPI
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getAudioVerses(in string book, in string verse) const
+	final string getAudioVerses(in char[] book, in char[] verse) const
 	{
-		if (!this.validateBook(book))
+		if (!validateBook(book))
 			throw new EsvException("Invalid book");
-		if (!this.validateVerse(verse))
+		if (!validateVerse(verse))
 			throw new EsvException("Invalid verse format");
 
-		string apiURL = format!"%s/audio/?q=%s+%s"(this._url, book.capitalize().replaceAll(regex("_"), "+"), verse);
+		string apiURL = format!"%s/audio/?q=%s+%s"(_url, book.capitalize().replaceAll(regex("_"), "+"), verse);
 		auto request = HTTP(apiURL);
 		ubyte[] response;
-		request.onProgress = this.onProgress;
+		request.onProgress = onProgress;
 		request.onReceive = (ubyte[] data)
 		{
 			response = response ~= data;
 			return data.length;
 		};
-		request.addRequestHeader("Authorization", "Token " ~ this._key);
+		request.addRequestHeader("Authorization", "Token " ~ _key);
 		request.perform();
 		string tmpFile = tempFile();
 		tmpFile.write(response);
@@ -279,34 +279,34 @@ class EsvAPI
 		{
 			return format!"%s&%s=%s"(params, param, value);
 		}
-		params = addParam("include-passage-references",       this.opts.boolOpts["include_passage_references"].to!string);
-		params = addParam("include-verse-numbers",            this.opts.boolOpts["include_verse_numbers"].to!string);
-		params = addParam("include-first-verse-numbers",      this.opts.boolOpts["include_first_verse_numbers"].to!string);
-		params = addParam("include-footnotes",                this.opts.boolOpts["include_footnotes"].to!string);
-		params = addParam("include-footnote-body",            this.opts.boolOpts["include_footnote_body"].to!string);
-		params = addParam("include-headings",                 this.opts.boolOpts["include_headings"].to!string);
-		params = addParam("include-short-copyright",          this.opts.boolOpts["include_short_copyright"].to!string);
-		params = addParam("include-copyright",                this.opts.boolOpts["include_copyright"].to!string);
-		params = addParam("include-passage-horizontal-lines", this.opts.boolOpts["include_passage_horizontal_lines"].to!string);
-		params = addParam("include-heading-horizontal-lines", this.opts.boolOpts["include_heading_horizontal_lines"].to!string);
-		params = addParam("include-selahs",                   this.opts.boolOpts["include_selahs"].to!string);
-		params = addParam("indent-poetry",                    this.opts.boolOpts["indent_poetry"].to!string);
-		params = addParam("horizontal-line-length",           this.opts.intOpts ["horizontal_line_length"].to!string);
-		params = addParam("indent-paragraphs",                this.opts.intOpts ["indent_paragraphs"].to!string);
-		params = addParam("indent-poetry-lines",              this.opts.intOpts ["indent_poetry_lines"].to!string);
-		params = addParam("indent-declares",                  this.opts.intOpts ["indent_declares"].to!string);
-		params = addParam("indent-psalm-doxology",            this.opts.intOpts ["indent_psalm_doxology"].to!string);
-		params = addParam("line-length",                      this.opts.intOpts ["line_length"].to!string);
-		params = addParam("indent-using",                     this.opts.indent_using.to!string);
+		params = addParam("include-passage-references",       opts.boolOpts["include_passage_references"].to!string);
+		params = addParam("include-verse-numbers",            opts.boolOpts["include_verse_numbers"].to!string);
+		params = addParam("include-first-verse-numbers",      opts.boolOpts["include_first_verse_numbers"].to!string);
+		params = addParam("include-footnotes",                opts.boolOpts["include_footnotes"].to!string);
+		params = addParam("include-footnote-body",            opts.boolOpts["include_footnote_body"].to!string);
+		params = addParam("include-headings",                 opts.boolOpts["include_headings"].to!string);
+		params = addParam("include-short-copyright",          opts.boolOpts["include_short_copyright"].to!string);
+		params = addParam("include-copyright",                opts.boolOpts["include_copyright"].to!string);
+		params = addParam("include-passage-horizontal-lines", opts.boolOpts["include_passage_horizontal_lines"].to!string);
+		params = addParam("include-heading-horizontal-lines", opts.boolOpts["include_heading_horizontal_lines"].to!string);
+		params = addParam("include-selahs",                   opts.boolOpts["include_selahs"].to!string);
+		params = addParam("indent-poetry",                    opts.boolOpts["indent_poetry"].to!string);
+		params = addParam("horizontal-line-length",           opts.intOpts ["horizontal_line_length"].to!string);
+		params = addParam("indent-paragraphs",                opts.intOpts ["indent_paragraphs"].to!string);
+		params = addParam("indent-poetry-lines",              opts.intOpts ["indent_poetry_lines"].to!string);
+		params = addParam("indent-declares",                  opts.intOpts ["indent_declares"].to!string);
+		params = addParam("indent-psalm-doxology",            opts.intOpts ["indent_psalm_doxology"].to!string);
+		params = addParam("line-length",                      opts.intOpts ["line_length"].to!string);
+		params = addParam("indent-using",                     opts.indent_using.to!string);
 		return params;
 	}
-	private string tempFile() const
+	private string tempFile() const @safe
 	{
 		auto rndNums = rndGen().map!(a => cast(ubyte)a)().take(32);
 		auto result = appender!string();
     	Base64.encode(rndNums, result);
-		this.tmpDir.mkdirRecurse();
-		string f = this.tmpDir ~ "/" ~ result.data.filter!isAlphaNum().to!string();
+		tmpDir.mkdirRecurse();
+		string f = tmpDir ~ "/" ~ result.data.filter!isAlphaNum().to!string();
 		f.write("");
 		return f;
 	}
@@ -319,25 +319,25 @@ struct EsvAPIOptions
 	string indent_using;
 	void setDefaults() nothrow @safe
 	{
-		this.boolOpts["include_passage_references"]       = true;
-		this.boolOpts["include_verse_numbers"]            = true;
-		this.boolOpts["include_first_verse_numbers"]      = true;
-		this.boolOpts["include_footnotes"]                = true;
-		this.boolOpts["include_footnote_body"]            = true;
-		this.boolOpts["include_headings"]                 = true;
-		this.boolOpts["include_short_copyright"]          = true;
-		this.boolOpts["include_copyright"]                = false;
-		this.boolOpts["include_passage_horizontal_lines"] = false;
-		this.boolOpts["include_heading_horizontal_lines"] = false;
-		this.boolOpts["include_selahs"]                   = true;
-		this.boolOpts["indent_poetry"]                    = true;
-		this.intOpts["horizontal_line_length"]           = 55;
-		this.intOpts["indent_paragraphs"]                = 2;
-		this.intOpts["indent_poetry_lines"]              = 4;
-		this.intOpts["indent_declares"]                  = 40;
-		this.intOpts["indent_psalm_doxology"]            = 30;
-		this.intOpts["line_length"]                      = 0;
-		this.indent_using                     = "space";
+		boolOpts["include_passage_references"]       = true;
+		boolOpts["include_verse_numbers"]            = true;
+		boolOpts["include_first_verse_numbers"]      = true;
+		boolOpts["include_footnotes"]                = true;
+		boolOpts["include_footnote_body"]            = true;
+		boolOpts["include_headings"]                 = true;
+		boolOpts["include_short_copyright"]          = true;
+		boolOpts["include_copyright"]                = false;
+		boolOpts["include_passage_horizontal_lines"] = false;
+		boolOpts["include_heading_horizontal_lines"] = false;
+		boolOpts["include_selahs"]                   = true;
+		boolOpts["indent_poetry"]                    = true;
+		intOpts["horizontal_line_length"]           = 55;
+		intOpts["indent_paragraphs"]                = 2;
+		intOpts["indent_poetry_lines"]              = 4;
+		intOpts["indent_declares"]                  = 40;
+		intOpts["indent_psalm_doxology"]            = 30;
+		intOpts["line_length"]                      = 0;
+		indent_using                     = "space";
 	}
 }
 
