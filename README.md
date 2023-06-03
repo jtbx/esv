@@ -38,8 +38,10 @@ an audio passage of Matthew 5-7.
 
 ## Installation
 
-To install `esv`, first make sure you have the [LLVM D compiler (ldc)](https://github.com/ldc-developers/ldc#installation) installed on your system.
-There are no other external dependencies.
+To install `esv`, first make sure you have the
+[LLVM D compiler (ldc)](https://github.com/ldc-developers/ldc#installation)
+installed on your system. You should also have Phobos (the D standard library, comes included with LDC)
+installed as a dynamic library in order to run the executable.
 
 First clone the source code repository:
 
@@ -56,8 +58,8 @@ $ make
 ```
 
 By default the Makefile guesses that the ldc executable is named `ldc2`. If it is installed
-under `ldc` instead, you can override the default D compiler executable by adding `DC=ldc`
-to the end of the `make` line.
+under a different name, or if you wish to use a different compiler, use `make DC=compiler`
+(where `compiler` is your compiler) instead.
 
 ## Documentation
 
@@ -69,7 +71,7 @@ All documentation is contained in the manual pages. To access them, you can run
 Copying, modifying and redistributing this software is permitted
 as long as your modified version conforms to the GNU General Public License version 2.
 
-The file esv.d is a reusable library.
+The file esvapi.d is a reusable library; all documentation is provided in the source file.
 
 The license is contained in the file COPYING.
 
