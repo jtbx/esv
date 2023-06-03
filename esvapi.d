@@ -1,5 +1,5 @@
 /*
- * esv.d: a reusable interface to the ESV HTTP API
+ * esvapi.d: a reusable interface to the ESV HTTP API
  *
  * The GPLv2 License (GPLv2)
  * Copyright (c) 2023 Jeremy Baxter
