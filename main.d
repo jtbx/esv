@@ -20,6 +20,7 @@
 
 import std.conv    : to, ConvException;
 import std.file    : exists, write, FileException;
+import std.format  : format;
 import std.getopt  : getopt, GetOptException, config;
 import std.path    : baseName, expandTilde, isValidPath;
 import std.process : environment, executeShell;
@@ -27,7 +28,7 @@ import std.regex   : regex, matchFirst, replaceAll, replaceFirst;
 import std.stdio   : writef, writeln, writefln, stderr;
 import std.string  : splitLines;
 
-import esv;
+import esvapi;
 import dini;
 
 enum VERSION = "0.2.0";
@@ -164,7 +165,7 @@ key = " ~ DEFAULT_APIKEY ~ "
 		panic("API key not present in configuration file; cannot proceed");
 
 	// Initialise API object and validate the book and verse
-	EsvAPI esv = new EsvAPI(apiKey);
+	ESVApi esv = new ESVApi(apiKey);
 	if (!esv.validateBook(args[1].extractBook()))
 		panic("book '" ~ args[1] ~ "' does not exist");
 	if (!esv.validateVerse(args[2]))
@@ -208,17 +209,17 @@ key = " ~ DEFAULT_APIKEY ~ "
 	foreach (string key; ["footnotes", "headings", "passage_references", "verse_numbers"]) {
 		try {
 			esv.opts.boolOpts["include_" ~ key] =
-				returnValid("true", iniData["passage"].getKey(key)).catchConvException(
-					(in ConvException ex, in char[] str)
-					{
-						panic(configPath ~ ": value '" ~ cast(string)str ~
-								"' is not convertible to a boolean value; must be either 'true' or 'false'");
-					}
-				);
+				returnValid("true", iniData["passage"].getKey(key)).to!bool();
+		} catch (ConvException e) {
+			panic(
+				format!"%s: key '%s' of section 'passage' is not a boolean value (must be either 'true' or 'false')"(
+					configPath, key
+				)
+			);
 		} catch (IniException e) {} // just do nothing; use the default settings
 	}
 	// Get line_length ([passage])
-	try esv.opts.intOpts["line_length"] = returnValid("0",    iniData["passage"].getKey("line_length")).to!int();
+	try esv.opts.intOpts["line_length"] = returnValid("0", iniData["passage"].getKey("line_length")).to!int();
 	catch (ConvException e) {
 		panic(configPath ~ ": value '" ~ iniData["passage"].getKey("line_length")
 			~ "' is not convertible to an integer value; must be a non-decimal number");
@@ -273,13 +274,4 @@ string extractOpt(in GetOptException e) @safe
 string extractBook(in string book) @safe
 {
 	return book.replaceAll(regex("[-_]"), " ");
-}
-
-bool catchConvException(in char[] sb, void delegate(in ConvException ex, in char[] str) @system catchNet)
-{
-	try return sb.to!bool();
-	catch (ConvException e) {
-		catchNet(e, sb);
-		return false;
-	}
 }

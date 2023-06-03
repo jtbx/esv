@@ -18,6 +18,8 @@
  * along with esv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+module esvapi;
+
 import std.algorithm : filter, map;
 import std.array     : appender;
 import std.ascii     : isAlphaNum;
@@ -106,12 +108,12 @@ const string[] BIBLE_BOOKS = [
 	"Revelation"
 ];
 
-class EsvAPI
+class ESVApi
 {
 	private string _key;
 	private string _url;
 	private string _mode;
-	EsvAPIOptions opts;
+	ESVApiOptions opts;
 	string extraParameters;
 	int delegate(size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) onProgress;
 	string tmpDir;
@@ -312,7 +314,7 @@ class EsvAPI
 	}
 }
 
-struct EsvAPIOptions
+struct ESVApiOptions
 {
 	bool[string] boolOpts;
 	int[string] intOpts;
@@ -337,7 +339,7 @@ struct EsvAPIOptions
 		intOpts["indent_declares"]                  = 40;
 		intOpts["indent_psalm_doxology"]            = 30;
 		intOpts["line_length"]                      = 0;
-		indent_using                     = "space";
+		indent_using                                = "space";
 	}
 }
 
