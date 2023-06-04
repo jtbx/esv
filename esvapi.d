@@ -30,11 +30,18 @@ import std.format    : format;
 import std.json      : JSONValue, parseJSON;
 import std.random    : rndGen;
 import std.range     : take;
-import std.regex     : matchAll, replaceAll, regex;
+import std.regex     : matchAll, replaceAll, replaceFirst, regex;
 import std.string    : capitalize;
 import std.utf       : toUTF8;
 import std.net.curl;
 
+public enum ESVMode
+{
+	TEXT,
+	AUDIO
+}
+
+const enum ESVAPI_KEY = "abfb7456fa52ec4292c79e435890cfa3df14dc2b";
 const enum ESVAPI_URL = "https://api.esv.org/v3/passage";
 const string[] BIBLE_BOOKS = [
 	// Old Testament
@@ -56,8 +63,8 @@ const string[] BIBLE_BOOKS = [
 	"Nehemiah",
 	"Esther",
 	"Job",
-	"Psalm",  // <-
-	"Psalms", // <- both are valid
+	"Psalm",
+	"Psalms", // both are valid
 	"Proverbs",
 	"Ecclesiastes",
 	"Song of Solomon",
@@ -110,54 +117,38 @@ const string[] BIBLE_BOOKS = [
 
 class ESVApi
 {
-	private string _key;
-	private string _url;
-	private string _mode;
+	private {
+		int _mode;
+		string _key;
+		string _tmp;
+		string _url;
+	}
 	ESVApiOptions opts;
 	string extraParameters;
-	int delegate(size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) onProgress;
-	string tmpDir;
-	this(immutable(string) key)
+	int delegate(size_t, size_t, size_t, size_t) onProgress;
+	this(immutable(string) key = ESVAPI_KEY, bool audio = false)
 	{
-		_url  = ESVAPI_URL;
 		_key  = key;
-		_mode = "text";
-		opts.setDefaults();
+		_mode = audio ? ESVMode.AUDIO : ESVMode.TEXT;
+		_tmp  = tempDir() ~ "esv";
+		_url  = ESVAPI_URL;
+		opts.defaults();
 		extraParameters = "";
-		onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) {return 0;};
-		tmpDir = tempDir() ~ "esvapi";
-	}
-	/*
-	 * Returns the API URL currently in use.
-	 */
-	final string getURL() const nothrow @nogc @safe
-	{
-		return _url;
-	}
-	/*
-	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
-	 * to the given url argument. Otherwise, throws an EsvException .
-	 */
-	final void setURL(immutable(string) url) @safe
-	{
-		auto matches = url.matchAll("^https?://.+\\..+(/.+)?");
-		if (matches.empty)
-			throw new EsvException("Invalid URL format");
-		else
-			_url = url;
+		onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) { return 0; };
+		tmpName = "esv";
 	}
 	/*
 	 * Returns the API authentication key that was given when the API object was instantiated.
 	 * This authentication key cannot be changed after instantiation.
 	 */
-	final string getKey() const nothrow @nogc @safe
+	@nogc @property @safe string key() const nothrow
 	{
 		return _key;
 	}
 	/*
 	 * Returns the API authentication key currently in use.
 	 */
-	final string getMode() const nothrow @nogc @safe
+	@nogc @property @safe int mode() const nothrow
 	{
 		return _mode;
 	}
@@ -165,27 +156,54 @@ class ESVApi
 	 * If the mode argument is either "text" or "html",
 	 * sets the text API mode to the given mode argument.
 	 * If the mode argument is not one of those,
-	 * then this function will do nothing.
+	 * throws an ESVException.
 	 */
-	final void setMode(immutable(string) mode) nothrow @nogc @safe
+	@property @safe void mode(immutable(int) mode)
 	{
-		foreach (string m; ["text", "html"] )
-		{
-			if (mode == m)
-			{
-				_mode = mode;
-				return;
-			}
-		}
+		if (mode == ESVMode.TEXT || mode == ESVMode.AUDIO)
+			_mode = mode;
+		else
+			throw new ESVException("Invalid mode");
+	}
+	/*
+	 * Returns the API URL currently in use.
+	 */
+	@nogc @property @safe string url() const nothrow
+	{
+		return _url;
+	}
+	/*
+	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
+	 * to the given url argument. Otherwise, throws an ESVException.
+	 */
+	@property @safe void url(immutable(string) url)
+	{
+		if (url.matchAll("^https?://.+\\..+(/.+)?").empty)
+			throw new ESVException("Invalid URL format");
+		else
+			_url = url;
+	}
+	/*
+	 * Returns the temp directory name.
+	 */
+	@property @safe tmpName() const
+	{
+		return _tmp.replaceFirst(regex('^' ~ tempDir()), "");
+	}
+	/*
+	 * Sets the temp directory name to the given string.
+	 */
+	@property @safe void tmpName(immutable(string) name)
+	{
+		_tmp = tempDir() ~ name;
 	}
 	/*
 	 * Returns true if the argument book is a valid book of the Bible.
 	 * Otherwise, returns false.
 	 */
-	final bool validateBook(in char[] book) const nothrow @safe
+	@safe bool validateBook(in char[] book) const nothrow
 	{
-		foreach (string b; BIBLE_BOOKS)
-		{
+		foreach (b; BIBLE_BOOKS) {
 			if (book.capitalize() == b.capitalize())
 				return true;
 		}
@@ -195,42 +213,47 @@ class ESVApi
 	 * Returns true if the argument book is a valid verse format.
 	 * Otherwise, returns false.
 	 */
-	final bool validateVerse(in char[] verse) const @safe
+	@safe bool validateVerse(in char[] verse) const
 	{
-		bool attemptRegex(string re) const @safe
+		@safe bool attemptRegex(string re) const
 		{
-			auto matches = verse.matchAll(re);
-			return !matches.empty;
+			return !verse.matchAll(re).empty;
 		}
 		if (attemptRegex("^\\d{1,3}$") ||
-			attemptRegex("^\\d{1,3}-\\d{1,3}$") ||
-			attemptRegex("^\\d{1,3}:\\d{1,3}$") ||
-			attemptRegex("^\\d{1,3}:\\d{1,3}-\\d{1,3}$"))
-		{
+				attemptRegex("^\\d{1,3}-\\d{1,3}$") ||
+				attemptRegex("^\\d{1,3}:\\d{1,3}$") ||
+				attemptRegex("^\\d{1,3}:\\d{1,3}-\\d{1,3}$"))
 			return true;
-		}
 		else
-		{
 			return false;
-		}
 	}
 	/*
 	 * Requests the verse(s) from the API and returns it.
 	 * The (case-insensitive) name of the book being searched are
 	 * contained in the argument book. The verse(s) being looked up are
 	 * contained in the argument verses.
+	 *
+	 * If the mode is ESVMode.AUDIO, requests an audio passage instead.
+	 * A file path to an MP3 audio track is returned.
+	 * To explicitly get an audio passage without setting the mode,
+	 * use getAudioVerses().
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getVerses(in char[] book, in char[] verse) const
+	string getVerses(in char[] book, in char[] verse) const
 	{
+		if (_mode == ESVMode.AUDIO) {
+			return getAudioVerses(book, verse);
+		}
+
 		if (!validateBook(book))
-			throw new EsvException("Invalid book");
+			throw new ESVException("Invalid book");
 		if (!validateVerse(verse))
-			throw new EsvException("Invalid verse format");
+			throw new ESVException("Invalid verse format");
 
 		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(_url, _mode,
-				book.capitalize().replaceAll(regex(" "), "+"), verse, assembleParameters(), extraParameters);
+				book.capitalize().replaceAll(regex(" "), "+"), verse,
+				assembleParameters(), extraParameters);
 		auto request = HTTP(apiURL);
 		string response;
 		request.onProgress = onProgress;
@@ -252,12 +275,12 @@ class ESVApi
 	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	final string getAudioVerses(in char[] book, in char[] verse) const
+	string getAudioVerses(in char[] book, in char[] verse) const
 	{
 		if (!validateBook(book))
-			throw new EsvException("Invalid book");
+			throw new ESVException("Invalid book");
 		if (!validateVerse(verse))
-			throw new EsvException("Invalid verse format");
+			throw new ESVException("Invalid verse format");
 
 		string apiURL = format!"%s/audio/?q=%s+%s"(_url, book.capitalize().replaceAll(regex(" "), "+"), verse);
 		auto request = HTTP(apiURL);
@@ -274,7 +297,8 @@ class ESVApi
 		tmpFile.write(response);
 		return tmpFile;
 	}
-	private string assembleParameters() const @safe
+	private:
+	@safe string assembleParameters() const
 	{
 		string params = "";
 		string addParam(string param, string value) const
@@ -302,14 +326,13 @@ class ESVApi
 		params = addParam("indent-using",                     opts.indent_using.to!string);
 		return params;
 	}
-	private string tempFile() const @safe
+	@safe string tempFile() const
 	{
 		auto rndNums = rndGen().map!(a => cast(ubyte)a)().take(32);
 		auto result = appender!string();
     	Base64.encode(rndNums, result);
-		tmpDir.mkdirRecurse();
-		string f = tmpDir ~ "/" ~ result.data.filter!isAlphaNum().to!string();
-		f.write("");
+		_tmp.mkdirRecurse();
+		string f = _tmp ~ "/" ~ result.data.filter!isAlphaNum().to!string();
 		return f;
 	}
 }
@@ -319,7 +342,7 @@ struct ESVApiOptions
 	bool[string] boolOpts;
 	int[string] intOpts;
 	string indent_using;
-	void setDefaults() nothrow @safe
+	@safe void defaults() nothrow
 	{
 		boolOpts["include_passage_references"]       = true;
 		boolOpts["include_verse_numbers"]            = true;
@@ -333,19 +356,19 @@ struct ESVApiOptions
 		boolOpts["include_heading_horizontal_lines"] = false;
 		boolOpts["include_selahs"]                   = true;
 		boolOpts["indent_poetry"]                    = true;
-		intOpts["horizontal_line_length"]           = 55;
-		intOpts["indent_paragraphs"]                = 2;
-		intOpts["indent_poetry_lines"]              = 4;
-		intOpts["indent_declares"]                  = 40;
-		intOpts["indent_psalm_doxology"]            = 30;
-		intOpts["line_length"]                      = 0;
-		indent_using                                = "space";
+		intOpts["horizontal_line_length"]			 = 55;
+		intOpts["indent_paragraphs"]                 = 2;
+		intOpts["indent_poetry_lines"]               = 4;
+		intOpts["indent_declares"]                   = 40;
+		intOpts["indent_psalm_doxology"]             = 30;
+		intOpts["line_length"]                       = 0;
+		indent_using                                 = "space";
 	}
 }
 
-class EsvException : Exception
+class ESVException : Exception
 {
-	this(string msg, string file = __FILE__, size_t line = __LINE__) @safe pure
+	@safe this(string msg, string file = __FILE__, size_t line = __LINE__) pure
 	{
 		super(msg, file, line);
 	}

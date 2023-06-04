@@ -33,7 +33,7 @@ import dini;
 
 enum VERSION = "0.2.0";
 
-enum DEFAULT_APIKEY     = "abfb7456fa52ec4292c79e435890cfa3df14dc2b"; // crossway approved ;)
+enum DEFAULT_APIKEY     = "abfb7456fa52ec4292c79e435890cfa3df14dc2b";
 enum DEFAULT_CONFIGPATH = "~/.config/esv.conf";
 enum DEFAULT_MPEGPLAYER = "mpg123";
 enum DEFAULT_PAGER      = "less";
@@ -158,14 +158,15 @@ key = " ~ DEFAULT_APIKEY ~ "
 			panic(e.msg);
 	}
 	string apiKey;
-	try apiKey = iniData["api"].getKey("key");
+	try
+		apiKey = iniData["api"].getKey("key");
 	catch (IniException e)
 		panic("API key not present in configuration file; cannot proceed");
 	if (apiKey == "")
 		panic("API key not present in configuration file; cannot proceed");
 
 	// Initialise API object and validate the book and verse
-	ESVApi esv = new ESVApi(apiKey);
+	ESVApi esv = new ESVApi(apiKey, optAudio);
 	if (!esv.validateBook(args[1].extractBook()))
 		panic("book '" ~ args[1] ~ "' does not exist");
 	if (!esv.validateVerse(args[2]))
@@ -179,10 +180,12 @@ key = " ~ DEFAULT_APIKEY ~ "
 		} else {
 			string tmpf = esv.getAudioVerses(args[1], args[2]);
 			string mpegPlayer = environment.get(ENV_PLAYER, DEFAULT_MPEGPLAYER);
-			// esv has built-in support for mpg123 and mpv
-			// other players will work, just recompile with
-			// the DEFAULT_MPEGPLAYER enum set differently
-			// or use the ESV_PLAYER environment variable
+			/*
+			 * esv has built-in support for mpg123 and mpv;
+			 * other players will work, just recompile with
+			 * the DEFAULT_MPEGPLAYER enum set differently
+			 * or use the ESV_PLAYER environment variable
+			*/
 			if (mpegPlayer == "mpg123")
 				mpegPlayer = mpegPlayer ~ " -q ";
 			else if (mpegPlayer == "mpv")
@@ -191,8 +194,8 @@ key = " ~ DEFAULT_APIKEY ~ "
 				mpegPlayer = DEFAULT_MPEGPLAYER ~ " ";
 			// spawn mpg123
 			executeShell(mpegPlayer ~ tmpf);
-			return 0;
 		}
+		return 0;
 	}
 
 	esv.extraParameters = iniData["api"].getKey("parameters");
@@ -219,7 +222,8 @@ key = " ~ DEFAULT_APIKEY ~ "
 		} catch (IniException e) {} // just do nothing; use the default settings
 	}
 	// Get line_length ([passage])
-	try esv.opts.intOpts["line_length"] = returnValid("0", iniData["passage"].getKey("line_length")).to!int();
+	try
+		esv.opts.intOpts["line_length"] = returnValid("0", iniData["passage"].getKey("line_length")).to!int();
 	catch (ConvException e) {
 		panic(configPath ~ ": value '" ~ iniData["passage"].getKey("line_length")
 			~ "' is not convertible to an integer value; must be a non-decimal number");
