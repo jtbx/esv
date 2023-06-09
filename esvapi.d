@@ -141,14 +141,14 @@ class ESVApi
 	 * Returns the API authentication key that was given when the API object was instantiated.
 	 * This authentication key cannot be changed after instantiation.
 	 */
-	@nogc @property @safe string key() const nothrow
+	@property string key() const nothrow pure @nogc @safe
 	{
 		return _key;
 	}
 	/*
 	 * Returns the API authentication key currently in use.
 	 */
-	@nogc @property @safe int mode() const nothrow
+	@property int mode() const nothrow pure @nogc @safe
 	{
 		return _mode;
 	}
@@ -158,7 +158,7 @@ class ESVApi
 	 * If the mode argument is not one of those,
 	 * throws an ESVException.
 	 */
-	@property @safe void mode(immutable(int) mode)
+	@property void mode(immutable(int) mode) pure @safe
 	{
 		if (mode == ESVMode.TEXT || mode == ESVMode.AUDIO)
 			_mode = mode;
@@ -168,7 +168,7 @@ class ESVApi
 	/*
 	 * Returns the API URL currently in use.
 	 */
-	@nogc @property @safe string url() const nothrow
+	@property string url() const nothrow pure @nogc @safe
 	{
 		return _url;
 	}
@@ -176,7 +176,7 @@ class ESVApi
 	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
 	 * to the given url argument. Otherwise, throws an ESVException.
 	 */
-	@property @safe void url(immutable(string) url)
+	@property void url(immutable(string) url) @safe
 	{
 		if (url.matchAll("^https?://.+\\..+(/.+)?").empty)
 			throw new ESVException("Invalid URL format");
@@ -186,14 +186,14 @@ class ESVApi
 	/*
 	 * Returns the temp directory name.
 	 */
-	@property @safe tmpName() const
+	@property tmpName() const @safe
 	{
 		return _tmp.replaceFirst(regex('^' ~ tempDir()), "");
 	}
 	/*
 	 * Sets the temp directory name to the given string.
 	 */
-	@property @safe void tmpName(immutable(string) name)
+	@property void tmpName(immutable(string) name) @safe
 	{
 		_tmp = tempDir() ~ name;
 	}
@@ -201,7 +201,7 @@ class ESVApi
 	 * Returns true if the argument book is a valid book of the Bible.
 	 * Otherwise, returns false.
 	 */
-	@safe bool validateBook(in char[] book) const nothrow
+	bool validateBook(in char[] book) const nothrow @safe
 	{
 		foreach (b; BIBLE_BOOKS) {
 			if (book.capitalize() == b.capitalize())
@@ -213,9 +213,9 @@ class ESVApi
 	 * Returns true if the argument book is a valid verse format.
 	 * Otherwise, returns false.
 	 */
-	@safe bool validateVerse(in char[] verse) const
+	bool validateVerse(in char[] verse) const @safe
 	{
-		@safe bool attemptRegex(string re) const
+		bool attemptRegex(string re) const @safe
 		{
 			return !verse.matchAll(re).empty;
 		}
@@ -288,7 +288,7 @@ class ESVApi
 		request.onProgress = onProgress;
 		request.onReceive = (ubyte[] data)
 		{
-			response = response ~= data;
+			response ~= data;
 			return data.length;
 		};
 		request.addRequestHeader("Authorization", "Token " ~ _key);
@@ -298,10 +298,10 @@ class ESVApi
 		return tmpFile;
 	}
 	private:
-	@safe string assembleParameters() const
+	string assembleParameters() const pure @safe
 	{
 		string params = "";
-		string addParam(string param, string value) const
+		string addParam(string param, string value) const pure @safe
 		{
 			return format!"%s&%s=%s"(params, param, value);
 		}
@@ -326,7 +326,7 @@ class ESVApi
 		params = addParam("indent-using",                     opts.indent_using.to!string);
 		return params;
 	}
-	@safe string tempFile() const
+	string tempFile() const @safe
 	{
 		auto rndNums = rndGen().map!(a => cast(ubyte)a)().take(32);
 		auto result = appender!string();
@@ -342,7 +342,7 @@ struct ESVApiOptions
 	bool[string] boolOpts;
 	int[string] intOpts;
 	string indent_using;
-	@safe void defaults() nothrow
+	void defaults() nothrow @safe
 	{
 		boolOpts["include_passage_references"]       = true;
 		boolOpts["include_verse_numbers"]            = true;
