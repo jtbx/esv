@@ -20,31 +20,25 @@
 
 module esvapi;
 
-import std.algorithm : filter, map;
-import std.array     : appender;
-import std.ascii     : isAlphaNum;
-import std.base64    : Base64;
 import std.conv      : to;
-import std.file      : mkdirRecurse, tempDir, write;
+import std.exception : basicExceptionCtors, enforce;
+import std.file      : tempDir, write;
 import std.format    : format;
 import std.json      : JSONValue, parseJSON;
-import std.random    : rndGen;
-import std.range     : take;
-import std.regex     : matchAll, replaceAll, replaceFirst, regex;
+import std.regex     : regex, matchAll, replaceAll;
+import std.stdio     : File;
 import std.string    : capitalize;
-import std.utf       : toUTF8;
-import std.net.curl;
+import std.net.curl  : HTTP;
 
-public enum ESVMode
+enum ESVIndent
 {
-	TEXT,
-	AUDIO
+	SPACE,
+	TAB
 }
 
-const enum ESVAPI_KEY = "abfb7456fa52ec4292c79e435890cfa3df14dc2b";
-const enum ESVAPI_URL = "https://api.esv.org/v3/passage";
+const enum string ESVAPI_URL = "https://api.esv.org/v3/passage";
 const string[] BIBLE_BOOKS = [
-	// Old Testament
+	/* Old Testament */
 	"Genesis",
 	"Exodus",
 	"Leviticus",
@@ -64,7 +58,7 @@ const string[] BIBLE_BOOKS = [
 	"Esther",
 	"Job",
 	"Psalm",
-	"Psalms", // both are valid
+	"Psalms", /* both are valid */
 	"Proverbs",
 	"Ecclesiastes",
 	"Song of Solomon",
@@ -85,7 +79,7 @@ const string[] BIBLE_BOOKS = [
 	"Haggai",
 	"Zechariah",
 	"Malachi",
-	// New Testament
+	/* New Testament */
 	"Matthew",
 	"Mark",
 	"Luke",
@@ -114,154 +108,167 @@ const string[] BIBLE_BOOKS = [
 	"Jude",
 	"Revelation"
 ];
+/* All boolean API parameters */
+const string[] ESVAPI_PARAMETERS = [
+	"include-passage-references",
+	"include-verse-numbers",
+	"include-first-verse-numbers",
+	"include-footnotes",
+	"include-footnote-body",
+	"include-headings",
+	"include-short-copyright",
+	"include-copyright",
+	"include-passage-horizontal-lines",
+	"include-heading-horizontal-lines",
+	"include-selahs",
+	"indent-poetry",
+	"horizontal-line-length",
+	"indent-paragraphs",
+	"indent-poetry-lines",
+	"indent-declares",
+	"indent-psalm-doxology",
+	"line-length",
+	"indent-using",
+];
+
+/*
+ * Returns true if the argument book is a valid book of the Bible.
+ * Otherwise, returns false.
+ */
+bool bookValid(in char[] book) nothrow @safe
+{
+	foreach (string b; BIBLE_BOOKS) {
+		if (book.capitalize() == b.capitalize())
+			return true;
+	}
+	return false;
+}
+/*
+ * Returns true if the argument book is a valid verse format.
+ * Otherwise, returns false.
+ */
+bool verseValid(in char[] verse) @safe
+{
+	bool vMatch(in string re) @safe
+	{
+		return !verse.matchAll(regex(re)).empty;
+	}
+	if (vMatch("^\\d{1,3}$") ||
+		vMatch("^\\d{1,3}-\\d{1,3}$") ||
+		vMatch("^\\d{1,3}:\\d{1,3}$") ||
+		vMatch("^\\d{1,3}:\\d{1,3}-\\d{1,3}$"))
+		return true;
+
+	return false;
+}
+
+}
 
 class ESVApi
 {
-	private {
-		int _mode;
+	protected {
 		string _key;
 		string _tmp;
 		string _url;
 	}
-	ESVApiOptions opts;
+
 	string extraParameters;
 	int delegate(size_t, size_t, size_t, size_t) onProgress;
-	this(immutable(string) key = ESVAPI_KEY, bool audio = false)
+	ESVApiOptions opts;
+
+	this(string key, string tmpName = "esv")
 	{
-		_key  = key;
-		_mode = audio ? ESVMode.AUDIO : ESVMode.TEXT;
-		_tmp  = tempDir() ~ "esv";
-		_url  = ESVAPI_URL;
-		opts.defaults();
+		_key = key;
+		_tmp = tempDir() ~ tmpName;
+		_url = ESVAPI_URL;
+		opts = ESVApiOptions(true);
 		extraParameters = "";
 		onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) { return 0; };
-		tmpName = "esv";
 	}
+
 	/*
-	 * Returns the API authentication key that was given when the API object was instantiated.
-	 * This authentication key cannot be changed after instantiation.
+	 * Returns the API authentication key that was given when the object
+	 * was constructed. This authentication key cannot be changed.
 	 */
-	@property string key() const nothrow pure @nogc @safe
+	@property string key() const nothrow pure @safe
 	{
 		return _key;
 	}
 	/*
-	 * Returns the API authentication key currently in use.
+	 * Returns the subdirectory used to store temporary audio passages.
 	 */
-	@property int mode() const nothrow pure @nogc @safe
+	@property string tmpDir() const nothrow pure @safe
 	{
-		return _mode;
-	}
-	/*
-	 * If the mode argument is either "text" or "html",
-	 * sets the text API mode to the given mode argument.
-	 * If the mode argument is not one of those,
-	 * throws an ESVException.
-	 */
-	@property void mode(immutable(int) mode) pure @safe
-	{
-		if (mode == ESVMode.TEXT || mode == ESVMode.AUDIO)
-			_mode = mode;
-		else
-			throw new ESVException("Invalid mode");
+		return _tmp;
 	}
 	/*
 	 * Returns the API URL currently in use.
 	 */
-	@property string url() const nothrow pure @nogc @safe
+	@property string url() const nothrow pure @safe
 	{
 		return _url;
 	}
 	/*
-	 * If the url argument is a valid HTTP URL, sets the API URL currently in use
-	 * to the given url argument. Otherwise, throws an ESVException.
+	 * Sets the API URL currently in use to the given url argument.
 	 */
 	@property void url(immutable(string) url) @safe
+	in (!url.matchAll(`^https?://.+\\..+(/.+)?`).empty, "Invalid URL format")
 	{
-		if (url.matchAll("^https?://.+\\..+(/.+)?").empty)
-			throw new ESVException("Invalid URL format");
-		else
-			_url = url;
+		_url = url;
 	}
 	/*
-	 * Returns the temp directory name.
-	 */
-	@property tmpName() const @safe
-	{
-		return _tmp.replaceFirst(regex('^' ~ tempDir()), "");
-	}
-	/*
-	 * Sets the temp directory name to the given string.
-	 */
-	@property void tmpName(immutable(string) name) @safe
-	{
-		_tmp = tempDir() ~ name;
-	}
-	/*
-	 * Returns true if the argument book is a valid book of the Bible.
-	 * Otherwise, returns false.
-	 */
-	bool validateBook(in char[] book) const nothrow @safe
-	{
-		foreach (b; BIBLE_BOOKS) {
-			if (book.capitalize() == b.capitalize())
-				return true;
-		}
-		return false;
-	}
-	/*
-	 * Returns true if the argument book is a valid verse format.
-	 * Otherwise, returns false.
-	 */
-	bool validateVerse(in char[] verse) const @safe
-	{
-		bool attemptRegex(string re) const @safe
-		{
-			return !verse.matchAll(re).empty;
-		}
-		if (attemptRegex("^\\d{1,3}$") ||
-				attemptRegex("^\\d{1,3}-\\d{1,3}$") ||
-				attemptRegex("^\\d{1,3}:\\d{1,3}$") ||
-				attemptRegex("^\\d{1,3}:\\d{1,3}-\\d{1,3}$"))
-			return true;
-		else
-			return false;
-	}
-	/*
-	 * Requests the verse(s) from the API and returns it.
+	 * Requests the verse(s) in text format from the API and returns it.
 	 * The (case-insensitive) name of the book being searched are
 	 * contained in the argument book. The verse(s) being looked up are
 	 * contained in the argument verses.
 	 *
-	 * If the mode is ESVMode.AUDIO, requests an audio passage instead.
-	 * A file path to an MP3 audio track is returned.
-	 * To explicitly get an audio passage without setting the mode,
-	 * use getAudioVerses().
-	 * 
 	 * Example: getVerses("John", "3:16-21")
 	 */
 	string getVerses(in char[] book, in char[] verse) const
+	in (bookValid(book),   "Invalid book")
+	in (verseValid(verse), "Invalid verse format")
 	{
-		if (_mode == ESVMode.AUDIO) {
-			return getAudioVerses(book, verse);
+		char[] params, response;
+		HTTP   request;
+
+		params = []; 
+
+		{
+			(char[])[] parambuf;
+			foreach (string opt; ESVAPI_PARAMETERS) {
+				bool bo;
+				int io;
+
+				switch (opt) {
+				case "indent-using":
+					o = opts.indent_using;
+					break;
+				case "indent-poetry":
+				}
+				!opt.matchAll("^include-").empty) {
+					o = opts.b[opt];
+				} else if (opt == "line-length" ||
+				opt == "horizontal-line-length" ||
+				!opt.matchAll("^indent-").empty) {
+					o = opts.i[opt];
+				}
+				params = format!"%s&%s=%s"(params, opt, o.to!string());
+			}
 		}
 
-		if (!validateBook(book))
-			throw new ESVException("Invalid book");
-		if (!validateVerse(verse))
-			throw new ESVException("Invalid verse format");
-
-		string apiURL = format!"%s/%s/?q=%s+%s%s%s"(_url, _mode,
-				book.capitalize().replaceAll(regex(" "), "+"), verse,
-				assembleParameters(), extraParameters);
-		auto request = HTTP(apiURL);
-		string response;
+		request = HTTP(
+			format!"%s/text/?q=%s+%s%s%s"(_url, book
+				.capitalize()
+				.replaceAll(regex(" "), "+"),
+			verse, params, extraParameters)
+		);
 		request.onProgress = onProgress;
-		request.onReceive = (ubyte[] data)
-		{
-			response = cast(string)data;
-			return data.length;
-		};
+		request.onReceive =
+			(ubyte[] data)
+			{
+				response ~= data;
+				return data.length;
+			};
 		request.addRequestHeader("Authorization", "Token " ~ _key);
 		request.perform();
 		return response.parseJSON()["passages"][0].str;
@@ -273,103 +280,110 @@ class ESVApi
 	 * contained in the argument book. The verse(s) being looked up are
 	 * contained in the argument verses.
 	 * 
-	 * Example: getVerses("John", "3:16-21")
+	 * Example: getAudioVerses("John", "3:16-21")
 	 */
 	string getAudioVerses(in char[] book, in char[] verse) const
+	in (bookValid(book),   "Invalid book")
+	in (verseValid(verse), "Invalid verse format")
 	{
-		if (!validateBook(book))
-			throw new ESVException("Invalid book");
-		if (!validateVerse(verse))
-			throw new ESVException("Invalid verse format");
+		char[] response;
+		File   tmpFile;
 
-		string apiURL = format!"%s/audio/?q=%s+%s"(_url, book.capitalize().replaceAll(regex(" "), "+"), verse);
-		auto request = HTTP(apiURL);
-		ubyte[] response;
+		auto request = HTTP(format!"%s/audio/?q=%s+%s"(
+			_url, book.capitalize().replaceAll(regex(" "), "+"), verse));
 		request.onProgress = onProgress;
-		request.onReceive = (ubyte[] data)
-		{
-			response ~= data;
-			return data.length;
-		};
+		request.onReceive =
+			(ubyte[] data)
+			{
+				response ~= data;
+				return data.length;
+			};
 		request.addRequestHeader("Authorization", "Token " ~ _key);
 		request.perform();
-		string tmpFile = tempFile();
+		tmpFile = File(_tmp, "w");
 		tmpFile.write(response);
-		return tmpFile;
+		return _tmp;
 	}
-	private:
-	string assembleParameters() const pure @safe
+	/*
+	 * Requests a passage search for the given query.
+	 * If raw is false, formats the passage search as
+	 * plain text, otherwise returns JSON from the API.
+	 * 
+	 * Example: search("It is finished")
+	 */
+	char[] search(in string query, in bool raw = true)
 	{
-		string params = "";
-		string addParam(string param, string value) const pure @safe
-		{
-			return format!"%s&%s=%s"(params, param, value);
+		ulong  i;
+		char[] response;
+		char[] layout;
+		HTTP   request;
+		JSONValue json;
+
+		request = HTTP(format!"%s/search/?q=%s"(
+				_url, query.replaceAll(regex(" "), "+")));
+		request.onProgress = onProgress;
+		request.onReceive =
+			(ubyte[] data)
+			{
+				response ~= cast(char[])data;
+				return data.length;
+			};
+		request.addRequestHeader("Authorization", "Token " ~ _key);
+		request.perform();
+
+		if (raw)
+			return response;
+
+		json = response.parseJSON();
+		layout = cast(char[])"";
+
+		enforce!ESVException(json["total_results"].integer == 0, "No results for search");
+
+		foreach (ulong i, JSONValue result; json["results"]) {
+			layout ~= format!"%s\n    %s\n"(
+				result["reference"].str,
+				result["content"].str
+			);
 		}
-		params = addParam("include-passage-references",       opts.boolOpts["include_passage_references"].to!string);
-		params = addParam("include-verse-numbers",            opts.boolOpts["include_verse_numbers"].to!string);
-		params = addParam("include-first-verse-numbers",      opts.boolOpts["include_first_verse_numbers"].to!string);
-		params = addParam("include-footnotes",                opts.boolOpts["include_footnotes"].to!string);
-		params = addParam("include-footnote-body",            opts.boolOpts["include_footnote_body"].to!string);
-		params = addParam("include-headings",                 opts.boolOpts["include_headings"].to!string);
-		params = addParam("include-short-copyright",          opts.boolOpts["include_short_copyright"].to!string);
-		params = addParam("include-copyright",                opts.boolOpts["include_copyright"].to!string);
-		params = addParam("include-passage-horizontal-lines", opts.boolOpts["include_passage_horizontal_lines"].to!string);
-		params = addParam("include-heading-horizontal-lines", opts.boolOpts["include_heading_horizontal_lines"].to!string);
-		params = addParam("include-selahs",                   opts.boolOpts["include_selahs"].to!string);
-		params = addParam("indent-poetry",                    opts.boolOpts["indent_poetry"].to!string);
-		params = addParam("horizontal-line-length",           opts.intOpts ["horizontal_line_length"].to!string);
-		params = addParam("indent-paragraphs",                opts.intOpts ["indent_paragraphs"].to!string);
-		params = addParam("indent-poetry-lines",              opts.intOpts ["indent_poetry_lines"].to!string);
-		params = addParam("indent-declares",                  opts.intOpts ["indent_declares"].to!string);
-		params = addParam("indent-psalm-doxology",            opts.intOpts ["indent_psalm_doxology"].to!string);
-		params = addParam("line-length",                      opts.intOpts ["line_length"].to!string);
-		params = addParam("indent-using",                     opts.indent_using.to!string);
-		return params;
-	}
-	string tempFile() const @safe
-	{
-		auto rndNums = rndGen().map!(a => cast(ubyte)a)().take(32);
-		auto result = appender!string();
-    	Base64.encode(rndNums, result);
-		_tmp.mkdirRecurse();
-		string f = _tmp ~ "/" ~ result.data.filter!isAlphaNum().to!string();
-		return f;
+
+		return layout;
 	}
 }
 
 struct ESVApiOptions
 {
-	bool[string] boolOpts;
-	int[string] intOpts;
-	string indent_using;
-	void defaults() nothrow @safe
+	bool[string] b;
+	int[string] i;
+	ESVIndent indent_using;
+
+	this(bool initialise) nothrow @safe
 	{
-		boolOpts["include_passage_references"]       = true;
-		boolOpts["include_verse_numbers"]            = true;
-		boolOpts["include_first_verse_numbers"]      = true;
-		boolOpts["include_footnotes"]                = true;
-		boolOpts["include_footnote_body"]            = true;
-		boolOpts["include_headings"]                 = true;
-		boolOpts["include_short_copyright"]          = true;
-		boolOpts["include_copyright"]                = false;
-		boolOpts["include_passage_horizontal_lines"] = false;
-		boolOpts["include_heading_horizontal_lines"] = false;
-		boolOpts["include_selahs"]                   = true;
-		boolOpts["indent_poetry"]                    = true;
-		intOpts["horizontal_line_length"]			 = 55;
-		intOpts["indent_paragraphs"]                 = 2;
-		intOpts["indent_poetry_lines"]               = 4;
-		intOpts["indent_declares"]                   = 40;
-		intOpts["indent_psalm_doxology"]             = 30;
-		intOpts["line_length"]                       = 0;
-		indent_using                                 = "space";
+		if (!initialise)
+			return;
+
+		b["include-passage-references"]  = true;
+		b["include-verse-numbers"]       = true;
+		b["include-first-verse-numbers"] = true;
+		b["include-footnotes"]           = true;
+		b["include-footnote-body"]       = true;
+		b["include-headings"]            = true;
+		b["include-short-copyright"]     = true;
+		b["include-copyright"]           = false;
+		b["include-passage-horizontal-lines"] = false;
+		b["include-heading-horizontal-lines"] = false;
+		b["include-selahs"] = true;
+		b["indent-poetry"]  = true;
+		i["horizontal-line-length"]	= 55;
+		i["indent-paragraphs"]      = 2;
+		i["indent-poetry-lines"]    = 4;
+		i["indent-declares"]        = 40;
+		i["indent-psalm-doxology"]  = 30;
+		i["line-length"]            = 0;
+		indent_using = ESVIndent.TAB;
 	}
 }
 
 class ESVException : Exception
 {
-	@safe this(string msg, string file = __FILE__, size_t line = __LINE__) pure
-	{
-		super(msg, file, line);
-	}
+	mixin basicExceptionCtors;
 }
