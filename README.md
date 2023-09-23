@@ -2,8 +2,8 @@
 
 *Read the Bible from your terminal*
 
-`esv` is a utility that displays passages of the English Standard Bible on your terminal.
-It connects to the ESV web API to retrieve the passages,
+`esv` is a utility that displays passages of the English Standard Bible
+on your terminal. It connects to the ESV web API to retrieve the passages,
 and allows configuration through command-line options and the configuration file.
 
 Example usage:
@@ -20,18 +20,20 @@ A Psalm of David.
         He makes me lie down in green pastures....
 ```
 
-If the requested passage is over 32 lines long, `esv` will pipe it through a pager
-(default less). The pager being used can be changed through the `ESV_PAGER`
-environment variable or just disabled altogether by passing the -P option.
+If the requested passage is over 32 lines long, `esv` will pipe it through
+a pager (default less). The pager being used can be changed through the
+`ESV_PAGER` environment variable or just disabled altogether by passing the
+-P option.
 
-The names of Bible books are not case sensitive, so John, john, JOHN and jOhN
+The names of Bible books are not case sensitive, so John, john, and JOHN
 are all accepted.
 
 ## Audio
 
 `esv` supports playing audio passages through the -a option.
-The `mpg123` audio/video player is utilised here and so it is therefore required
-if you want to use audio mode.
+The `mpg123` audio/video player is utilised here and so it required if you
+want to play audio passages. If you prefer, you can use a different player
+(such as mpv) by editing config.di.
 
 Audio usage is the same as normal text usage. `esv -a Matthew 5-7` will play
 an audio passage of Matthew 5-7.
@@ -40,10 +42,13 @@ an audio passage of Matthew 5-7.
 
 To install `esv`, first make sure you have the
 [LLVM D compiler (ldc)](https://github.com/ldc-developers/ldc#installation)
-installed on your system. You should also have Phobos (the D standard library, comes included with LDC)
-installed as a dynamic library in order to run the executable.
+installed on your system.
 
-First clone the source code repository:
+Commands prefixed with a dollar sign ($) are intended to be run as
+a standard user, and commands prefixed with a hash sign (#) are intended
+to be run as the root user.
+
+First, get the source code:
 
 ```
 $ git clone https://codeberg.org/jtbx/esv
@@ -53,13 +58,15 @@ $ cd esv
 Now, compile and install:
 
 ```
+$ ./configure
 $ make
 # make install
 ```
 
-By default the Makefile guesses that the ldc executable is named `ldc2`. If it is installed
-under a different name, or if you wish to use a different compiler, use `make DC=compiler`
-(where `compiler` is your compiler) instead.
+<!--
+By default the configure script looks for ldc and dmd in your PATH
+and optimises the command-line arguments based on the compiler.
+-->
 
 ## Documentation
 

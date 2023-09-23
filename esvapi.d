@@ -25,9 +25,9 @@ import std.exception : basicExceptionCtors, enforce;
 import std.file      : tempDir, write;
 import std.format    : format;
 import std.json      : JSONValue, parseJSON;
-import std.regex     : regex, matchAll, replaceAll;
+import std.regex     : regex, matchAll;
 import std.stdio     : File;
-import std.string    : capitalize;
+import std.string    : capitalize, tr;
 import std.net.curl  : HTTP;
 
 enum ESVIndent
@@ -162,8 +162,6 @@ bool verseValid(in char[] verse) @safe
 	return false;
 }
 
-}
-
 class ESVApi
 {
 	protected {
@@ -234,32 +232,51 @@ class ESVApi
 		params = []; 
 
 		{
-			(char[])[] parambuf;
+			void *o;
+			string[] parambuf;
 			foreach (string opt; ESVAPI_PARAMETERS) {
-				bool bo;
-				int io;
-
 				switch (opt) {
 				case "indent-using":
-					o = opts.indent_using;
+					o = cast(void *)opts.indent_using;
 					break;
 				case "indent-poetry":
+				case "include-passage-references":
+				case "include-verse-numbers":
+				case "include-first-verse-numbers":
+				case "include-footnotes":
+				case "include-footnote-body":
+				case "include-headings":
+				case "include-short-copyright":
+				case "include-copyright":
+				case "include-passage-horizontal-lines":
+				case "include-heading-horizontal-lines":
+				case "include-selahs":
+					o = cast(void *)opts.b[opt];
+					break;
+				case "line-length":
+				case "horizontal-line-length":
+				case "indent-paragraphs":
+				case "indent-poetry-lines":
+				case "indent-declares":
+				case "indent-psalm-doxology":
+					o = cast(void *)opts.i[opt];
+					break;
+				default: break;
 				}
-				!opt.matchAll("^include-").empty) {
-					o = opts.b[opt];
-				} else if (opt == "line-length" ||
-				opt == "horizontal-line-length" ||
-				!opt.matchAll("^indent-").empty) {
-					o = opts.i[opt];
-				}
-				params = format!"%s&%s=%s"(params, opt, o.to!string());
+				parambuf[parambuf.length] = format!"&%s=%s"(
+					opt,
+					opt == "indent-using" ?
+						opts.indent_using == ESVIndent.TAB ? "tab" : "space"
+					: o.to!string()
+				);
 			}
 		}
 
-		request = HTTP(
-			format!"%s/text/?q=%s+%s%s%s"(_url, book
+		request = HTTP(format!"%s/text/?q=%s+%s%s%s"(
+			_url,
+			book
 				.capitalize()
-				.replaceAll(regex(" "), "+"),
+				.tr(" ", "+"),
 			verse, params, extraParameters)
 		);
 		request.onProgress = onProgress;
@@ -290,7 +307,12 @@ class ESVApi
 		File   tmpFile;
 
 		auto request = HTTP(format!"%s/audio/?q=%s+%s"(
-			_url, book.capitalize().replaceAll(regex(" "), "+"), verse));
+			_url,
+			book
+				.capitalize()
+				.tr(" ", "+"),
+			verse)
+		);
 		request.onProgress = onProgress;
 		request.onReceive =
 			(ubyte[] data)
@@ -320,7 +342,8 @@ class ESVApi
 		JSONValue json;
 
 		request = HTTP(format!"%s/search/?q=%s"(
-				_url, query.replaceAll(regex(" "), "+")));
+			_url, query.tr(" ", "+"))
+		);
 		request.onProgress = onProgress;
 		request.onReceive =
 			(ubyte[] data)

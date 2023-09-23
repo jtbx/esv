@@ -1,0 +1,187 @@
+#!/usr/bin/env sh
+# simple and flexible configure script for people who don't like to waste time
+# licensed to the public domain
+
+set -e
+
+IMPORT=import
+
+mkf=Makefile
+cflags=-I"$IMPORT"
+objs='esv.o esvapi.o'
+srcs='esv.d esvapi.d'
+makefile='
+IMPORT    = '"$IMPORT"'
+PREFIX    = /usr/local
+MANPREFIX = ${PREFIX}/man
+
+DC      = ${_DC}
+CFLAGS  = ${_CFLAGS}
+OBJS    = ${_OBJS} ini.o
+
+all: esv
+
+esv: ${OBJS}
+	${DC} ${_LDFLAGS} -of=$@ ${OBJS}
+
+.SUFFIXES: .d .o
+
+.d.o:
+	${DC} ${CFLAGS} -c $<
+
+ini.o: ${IMPORT}/dini/*.d
+	${DC} ${CFLAGS} -of=ini.o -c ${IMPORT}/dini/*.d
+
+clean:
+	rm -f esv ${OBJS}
+
+install: esv
+	install -m755 esv ${DESTDIR}${PREFIX}/bin/esv
+	cp -f esv.1 ${DESTDIR}${MANPREFIX}/man1
+	cp -f esv.conf.5 ${DESTDIR}${MANPREFIX}/man5
+
+.PHONY: all clean install
+'
+
+# utility functions
+
+present () {
+	command -v "$1" 1>/dev/null 2>/dev/null
+}
+using () {
+	>&2 printf "using $1\n"
+}
+error () {
+	>&2 printf "$(basename $0): $1\n"
+	exit 1
+}
+
+# generators
+
+## D compiler
+gen_DC () {
+	if ! [ -z "$dc" ]; then
+		using "$dc"
+		return 0
+	fi
+	if present ldc2; then
+		dc=ldc2
+		using ldc2
+	elif present dmd; then
+		dc=dmd
+		using dmd
+	else
+		error "D compiler not found; install ldc or dmd"
+	fi
+}
+
+## flags used in the compilation step
+gen_CFLAGS () {
+	if [ -z "$debug" ]; then
+		case "$dc" in
+			ldc2) cflags="-Oz";;
+			 dmd) cflags="-O";;
+		 esac
+		 using "$cflags"
+	else
+		fdebugsymbols="-g"
+		using "$fdebugsymbols"
+		case "$dc" in
+			ldc2)
+				fdebug="-d-debug"
+				using "$fdebug"
+				foptimisation="-O0"
+				using "$foptimisation"
+				;;
+			 dmd) fdebug="-debug";;
+		esac
+		cflags="$fdebugsymbols $fdebug"
+		unset fdebug
+		unset fdebugsymbols
+		unset foptimisation
+	fi
+}
+
+## flags used in the linking step
+gen_LDFLAGS () {
+	if [ "$dc" = ldc2 ]; then
+		if present ld.lld; then
+			ldflags="-linker=lld"
+			using "$ldflags"
+		elif present ld.gold; then
+			ldflags="-linker=gold"
+			using "$ldflags"
+		fi
+	fi
+}
+
+# command line interface
+
+while getopts c:dhr ch; do
+	case "$ch" in
+		c)
+			case "$OPTARG" in
+				ldc2) dc="ldc2" ;;
+				dmd)  dc="dmd"  ;;
+				*) error "unknown D compiler '$OPTARG' specified (valid options: ldc2, dmd)" ;;
+			esac
+			;;
+		d) debug=1 ;;
+		r) unset debug ;;
+		h)
+			cat <<EOF
+configure: create an optimised makefile for the current environment
+
+options:
+  -c: force use of a particular compiler (dmd or ldc2)
+  -d: build in debug mode, with debug symbols and statements enabled
+  -r: build in release mode with optimisation flags enabled (default)
+  -h: show this help message
+EOF
+			exit 0
+			;;
+		?) exit 1 ;;
+		:) exit 1 ;;
+	esac
+done
+
+# creating the makefile
+
+u_cflags="$cflags"
+unset cflags
+
+gen_DC
+gen_CFLAGS
+gen_LDFLAGS
+
+rm -f "$mkf"
+printf '# begin generated definitions' >>"$mkf"
+printf '
+_DC = %s
+_CFLAGS = %s
+_LDFLAGS = %s
+'              \
+	"$dc"      \
+	"$cflags $u_cflags" \
+	"$ldflags" \
+		>>"$mkf"
+## generate obj list
+printf '_OBJS =' >>"$mkf"
+for obj in $objs; do
+	printf " $obj" >>"$mkf"
+done
+printf '\n' >>"$mkf"
+printf '# end generated definitions\n' >>"$mkf"
+
+printf "$makefile" >>"$mkf"
+
+## generate dependency list
+>&2 printf "generating dependency list\n"
+printf '\n# begin generated dependencies\n' >>"$mkf"
+i=1
+for obj in $objs; do
+	"$dc" $u_cflags -O0 -o- -makedeps \
+		"$(printf "$srcs" | awk '{print $'"$i"'}')" >>"$mkf"
+	i="$(($i + 1))"
+done
+printf '# end generated dependencies\n' >>"$mkf"
