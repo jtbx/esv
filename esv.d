@@ -206,7 +206,8 @@ key = %s
 
 	esv.extraParameters = iniData["api"].getKey("parameters");
 
-	string returnValid(string def, string val)
+	string
+	returnValid(string def, string val)
 	{
 		return val == "" ? def : val;
 	}
@@ -275,12 +276,14 @@ key = %s
 	return true;
 }
 
-private string extractOpt(in GetOptException e) @safe
+private string
+extractOpt(in GetOptException e) @safe
 {
 	return e.msg.matchFirst("-.")[0];
 }
 
-private string parseBook(in string book) @safe
+private string
+parseBook(in string book) @safe
 {
 	return book.replaceAll(regex("[-_]"), " ");
 }

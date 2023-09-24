@@ -135,7 +135,8 @@ const string[] ESVAPI_PARAMETERS = [
  * Returns true if the argument book is a valid book of the Bible.
  * Otherwise, returns false.
  */
-bool bookValid(in char[] book) nothrow @safe
+bool
+bookValid(in char[] book) nothrow @safe
 {
 	foreach (string b; BIBLE_BOOKS) {
 		if (book.capitalize() == b.capitalize())
@@ -147,9 +148,11 @@ bool bookValid(in char[] book) nothrow @safe
  * Returns true if the argument book is a valid verse format.
  * Otherwise, returns false.
  */
-bool verseValid(in char[] verse) @safe
+bool
+verseValid(in char[] verse) @safe
 {
-	bool vMatch(in string re) @safe
+	bool
+	vMatch(in string re) @safe
 	{
 		return !verse.matchAll(regex(re)).empty;
 	}
@@ -188,28 +191,32 @@ class ESVApi
 	 * Returns the API authentication key that was given when the object
 	 * was constructed. This authentication key cannot be changed.
 	 */
-	@property string key() const nothrow pure @safe
+	@property string
+	key() const nothrow pure @safe
 	{
 		return _key;
 	}
 	/*
 	 * Returns the subdirectory used to store temporary audio passages.
 	 */
-	@property string tmpDir() const nothrow pure @safe
+	@property string
+	tmpDir() const nothrow pure @safe
 	{
 		return _tmp;
 	}
 	/*
 	 * Returns the API URL currently in use.
 	 */
-	@property string url() const nothrow pure @safe
+	@property string
+	url() const nothrow pure @safe
 	{
 		return _url;
 	}
 	/*
 	 * Sets the API URL currently in use to the given url argument.
 	 */
-	@property void url(immutable(string) url) @safe
+	@property void
+	url(immutable(string) url) @safe
 	in (!url.matchAll(`^https?://.+\\..+(/.+)?`).empty, "Invalid URL format")
 	{
 		_url = url;
@@ -222,7 +229,8 @@ class ESVApi
 	 *
 	 * Example: getVerses("John", "3:16-21")
 	 */
-	string getVerses(in char[] book, in char[] verse) const
+	string
+	getVerses(in char[] book, in char[] verse) const
 	in (bookValid(book),   "Invalid book")
 	in (verseValid(verse), "Invalid verse format")
 	{
@@ -299,7 +307,8 @@ class ESVApi
 	 * 
 	 * Example: getAudioVerses("John", "3:16-21")
 	 */
-	string getAudioVerses(in char[] book, in char[] verse) const
+	string
+	getAudioVerses(in char[] book, in char[] verse) const
 	in (bookValid(book),   "Invalid book")
 	in (verseValid(verse), "Invalid verse format")
 	{
@@ -333,7 +342,8 @@ class ESVApi
 	 * 
 	 * Example: search("It is finished")
 	 */
-	char[] search(in string query, in bool raw = true)
+	char[]
+	search(in string query, in bool raw = true)
 	{
 		ulong  i;
 		char[] response;
