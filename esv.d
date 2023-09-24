@@ -18,6 +18,8 @@
  * along with esv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+module esv;
+
 import std.conv    : to, ConvException;
 import std.exception : enforce;
 import std.file    : exists, mkdirRecurse, write, FileException;
