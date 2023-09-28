@@ -46,6 +46,7 @@ int    lFlag;        /* line length */
 bool   nFlag, NFlag; /* verse numbers */
 bool   PFlag;        /* disable pager */
 bool   rFlag, RFlag; /* passage references */
+string sFlag;        /* search passages */
 bool   VFlag;        /* show version */
 
 int
@@ -89,21 +90,18 @@ run(string[] args)
 
 	/* Parse command-line options */
 	try {
-		args.getopt(
+		getopt(args,
 			getoptConfig.bundling,
 			getoptConfig.caseSensitive,
 			"a", &aFlag,
 			"C", &CFlag,
-			"F", &FFlag,
-			"f", &fFlag,
-			"H", &HFlag,
-			"h", &hFlag,
+			"F", &FFlag, "f", &fFlag,
+			"H", &HFlag, "h", &hFlag,
 			"l", &lFlag,
-			"N", &NFlag,
-			"n", &nFlag,
+			"N", &NFlag, "n", &nFlag,
 			"P", &PFlag,
-			"R", &RFlag,
-			"r", &rFlag,
+			"R", &RFlag, "r", &rFlag,
+			"s", &sFlag,
 			"V", &VFlag,
 		);
 	} catch (GetOptException e) {
@@ -115,7 +113,7 @@ run(string[] args)
 		throw new Exception(e.msg); /* catch-all */
 	} catch (ConvException e) {
 		throw new Exception(
-			"illegal argument to -l option -- integer required");
+			"illegal argument to -l option -- must be integer");
 	}
 
 	if (VFlag) {
@@ -123,8 +121,13 @@ run(string[] args)
 		return true;
 	}
 
+	if (sFlag != "") {
+		/* skip argument validation */
+		goto config;
+	}
+
 	if (args.length < 3) {
-		stderr.writefln("usage: %s [-C config] [-l length] [-aFfHhNnPRrV] book verses", args[0].baseName());
+		stderr.writefln("usage: %s [-aFfHhNnPRrV] [-C config] [-l length] [-s query] book verses", args[0].baseName());
 		return false;
 	}
 
@@ -136,6 +139,7 @@ run(string[] args)
 	/* determine configuration file
 	 * Options have first priority, then environment variables,
 	 * then the default path */
+config:
 	configPath = environment.get(ENV_CONFIG, DEFAULT_CONFIGPATH)
 		.expandTilde();
 	try {
@@ -162,8 +166,8 @@ key = %s
 #[passage]
 #footnotes = false
 #headings = false
-#passage_references = false
-#verse_numbers = false
+#passage-references = false
+#verse-numbers = false
 "(DEFAULT_APIKEY));
 			}
 		}
@@ -182,16 +186,21 @@ key = %s
 
 	esv = new ESVApi(apiKey);
 
+	enforce(!(aFlag && sFlag), "cannot specify both -a and -s options");
 	if (aFlag) {
 		string tmpf, mpegPlayer;
 
-		/* check for mpg123 */
-		enforce(executeShell(
-			format!"command -v %s >/dev/null 2>&1"(DEFAULT_MPEGPLAYER)).status == 0,
-			DEFAULT_MPEGPLAYER ~ " is required for audio mode; cannot continue");
-
-		tmpf = esv.getAudioVerses(args[1], args[2]);
+		tmpf = esv.getAudioPassage(args[1], args[2]);
 		mpegPlayer = environment.get(ENV_PLAYER, DEFAULT_MPEGPLAYER);
+
+		/* check for an audio player */
+		enforce(
+			executeShell(
+				format!"command -v %s >/dev/null 2>&1"(mpegPlayer)
+			).status == 0,
+			format!"%s is required for audio mode; cannot continue"(mpegPlayer)
+		);
+
 		/* esv has built-in support for mpg123 and mpv.
 		 * other players will work, just recompile with
 		 * the DEFAULT_MPEGPLAYER enum set differently
@@ -201,6 +210,10 @@ key = %s
 			mpegPlayer == "mpv"    ? " --msg-level=all=no " : " ";
 		/* spawn mpg123 */
 		executeShell(mpegPlayer ~ tmpf);
+		return true;
+	}
+	if (sFlag) {
+		writeln(esv.searchFormat(sFlag));
 		return true;
 	}
 
@@ -213,9 +226,9 @@ key = %s
 	}
 
 	/* Get [passage] keys */
-	foreach (string key; ["footnotes", "headings", "passage_references", "verse_numbers"]) {
+	foreach (string key; ["footnotes", "headings", "passage-references", "verse-numbers"]) {
 		try {
-			esv.opts.b["include_" ~ key] =
+			esv.opts.b["include-" ~ key] =
 				returnValid("true", iniData["passage"].getKey(key)).to!bool();
 		} catch (ConvException e) {
 			throw new Exception(format!
@@ -224,27 +237,30 @@ key = %s
 			);
 		} catch (IniException e) {} // just do nothing; use the default settings
 	}
-	/* Get line_length ([passage]) */
-	try esv.opts.i["line_length"] = returnValid("0", iniData["passage"].getKey("line_length")).to!int();
+	/* Get line-length ([passage]) */
+	try {
+		esv.opts.i["line-length"] =
+			returnValid("0", iniData["passage"].getKey("line-length")).to!int();
+	}
 	catch (ConvException e) {
 		throw new Exception(
 			format!"%s: illegal value '%s' -- must be an integer"(
 				configPath,
-				iniData["passage"].getKey("line_length"))
+				iniData["passage"].getKey("line-length"))
 		);
 	} catch (IniException e) {} // just do nothing; use the default setting
 
-	if (fFlag) esv.opts.b["include_footnotes"]          = true;
-	if (hFlag) esv.opts.b["include_headings"]           = true;
-	if (nFlag) esv.opts.b["include_verse_numbers"]      = true;
-	if (rFlag) esv.opts.b["include_passage_references"] = true;
-	if (FFlag) esv.opts.b["include_footnotes"]          = false;
-	if (HFlag) esv.opts.b["include_headings"]           = false;
-	if (NFlag) esv.opts.b["include_verse_numbers"]      = false;
-	if (RFlag) esv.opts.b["include_passage_references"] = false;
-	if (lFlag != 0) esv.opts.i["line_length"] = lFlag;
+	if (fFlag) esv.opts.b["include-footnotes"]          = true;
+	if (hFlag) esv.opts.b["include-headings"]           = true;
+	if (nFlag) esv.opts.b["include-verse-numbers"]      = true;
+	if (rFlag) esv.opts.b["include-passage-references"] = true;
+	if (FFlag) esv.opts.b["include-footnotes"]          = false;
+	if (HFlag) esv.opts.b["include-headings"]           = false;
+	if (NFlag) esv.opts.b["include-verse-numbers"]      = false;
+	if (RFlag) esv.opts.b["include-passage-references"] = false;
+	if (lFlag != 0) esv.opts.i["line-length"] = lFlag;
 
-	verses = esv.getVerses(args[1].parseBook(), args[2]);
+	verses = esv.getPassage(args[1].parseBook(), args[2]);
 	foreach (string line; verses.splitLines())
 		++lines;
 

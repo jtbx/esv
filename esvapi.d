@@ -27,7 +27,7 @@ import std.format    : format;
 import std.json      : JSONValue, parseJSON;
 import std.regex     : regex, matchAll;
 import std.stdio     : File;
-import std.string    : capitalize, tr;
+import std.string    : capitalize, tr, wrap;
 import std.net.curl  : HTTP;
 
 enum ESVIndent
@@ -184,7 +184,11 @@ class ESVApi
 		_url = ESVAPI_URL;
 		opts = ESVApiOptions(true);
 		extraParameters = "";
-		onProgress = (size_t dlTotal, size_t dlNow, size_t ulTotal, size_t ulNow) { return 0; };
+		onProgress = (size_t dlTotal, size_t dlNow,
+					size_t ulTotal, size_t ulNow)
+		{
+			return 0;
+		};
 	}
 
 	/*
@@ -222,15 +226,15 @@ class ESVApi
 		_url = url;
 	}
 	/*
-	 * Requests the verse(s) in text format from the API and returns it.
+	 * Requests the passage in text format from the API and returns it.
 	 * The (case-insensitive) name of the book being searched are
 	 * contained in the argument book. The verse(s) being looked up are
 	 * contained in the argument verses.
 	 *
-	 * Example: getVerses("John", "3:16-21")
+	 * Example: getPassage("John", "3:16-21")
 	 */
 	string
-	getVerses(in char[] book, in char[] verse) const
+	getPassage(in char[] book, in char[] verse)
 	in (bookValid(book),   "Invalid book")
 	in (verseValid(verse), "Invalid verse format")
 	{
@@ -242,60 +246,37 @@ class ESVApi
 		{
 			void *o;
 			string[] parambuf;
-			foreach (string opt; ESVAPI_PARAMETERS) {
-				switch (opt) {
-				case "indent-using":
-					o = cast(void *)opts.indent_using;
-					break;
-				case "indent-poetry":
-				case "include-passage-references":
-				case "include-verse-numbers":
-				case "include-first-verse-numbers":
-				case "include-footnotes":
-				case "include-footnote-body":
-				case "include-headings":
-				case "include-short-copyright":
-				case "include-copyright":
-				case "include-passage-horizontal-lines":
-				case "include-heading-horizontal-lines":
-				case "include-selahs":
-					o = cast(void *)opts.b[opt];
-					break;
-				case "line-length":
-				case "horizontal-line-length":
-				case "indent-paragraphs":
-				case "indent-poetry-lines":
-				case "indent-declares":
-				case "indent-psalm-doxology":
-					o = cast(void *)opts.i[opt];
-					break;
-				default: break;
-				}
-				parambuf[parambuf.length] = format!"&%s=%s"(
-					opt,
-					opt == "indent-using" ?
-						opts.indent_using == ESVIndent.TAB ? "tab" : "space"
-					: o.to!string()
-				);
+
+			void
+			addParams(R)(R item)
+			{
+				parambuf[parambuf.length] =
+					format!"&%s=%s"(item.key, item.value);
+			}
+
+			/*                    integers        booleans        indent_using */
+			parambuf = new string[opts.i.length + opts.b.length + 1];
+
+			foreach (item; opts.i.byKeyValue())
+				addParams(item);
+			foreach (item; opts.b.byKeyValue())
+				addParams(item);
+
+			parambuf[parambuf.length] =
+				format!"&indent-using=%s"(
+					opts.indent_using == ESVIndent.TAB ? "tab" : "space");
+
+			/* assemble string from string buffer */
+			foreach (string param; parambuf) {
+				params ~= param;
 			}
 		}
 
-		request = HTTP(format!"%s/text/?q=%s+%s%s%s"(
-			_url,
+		response = makeRequest(format!"text/?q=%s+%s"(
 			book
 				.capitalize()
 				.tr(" ", "+"),
-			verse, params, extraParameters)
-		);
-		request.onProgress = onProgress;
-		request.onReceive =
-			(ubyte[] data)
-			{
-				response ~= data;
-				return data.length;
-			};
-		request.addRequestHeader("Authorization", "Token " ~ _key);
-		request.perform();
+			verse) ~ params ~ extraParameters);
 		return response.parseJSON()["passages"][0].str;
 	}
 	/*
@@ -305,23 +286,81 @@ class ESVApi
 	 * contained in the argument book. The verse(s) being looked up are
 	 * contained in the argument verses.
 	 * 
-	 * Example: getAudioVerses("John", "3:16-21")
+	 * Example: getAudioPassage("John", "3:16-21")
 	 */
 	string
-	getAudioVerses(in char[] book, in char[] verse) const
+	getAudioPassage(in char[] book, in char[] verse)
 	in (bookValid(book),   "Invalid book")
 	in (verseValid(verse), "Invalid verse format")
 	{
 		char[] response;
-		File   tmpFile;
+		File tmpFile;
+		HTTP request;
 
-		auto request = HTTP(format!"%s/audio/?q=%s+%s"(
-			_url,
+		response = makeRequest(format!"audio/?q=%s+%s"(
 			book
 				.capitalize()
 				.tr(" ", "+"),
 			verse)
 		);
+		tmpFile = File(_tmp, "w");
+		tmpFile.write(response);
+		return _tmp;
+	}
+	/*
+	 * Requests a passage search for the given query.
+	 * Returns a string containing JSON data representing
+	 * the results of the search.
+	 * 
+	 * Example: search("It is finished")
+	 */
+	char[]
+	search(in string query)
+	{
+		char[] response;
+		HTTP   request;
+		JSONValue json;
+
+		response = makeRequest("search/?q=" ~ query.tr(" ", "+"));
+		return response;
+	}
+	/*
+	 * Calls search() and formats the results nicely as plain text.
+	 */
+	char[]
+	searchFormat(alias fmt = "\033[1m%s\033[0m\n  %s\n")
+		(in string query, int lineLength = 0) /* 0 means default */
+	{
+		JSONValue resp;
+		char[] layout;
+
+		resp = parseJSON(search(query));
+		layout = [];
+
+		enforce!ESVException(resp["total_results"].integer != 0,
+			"No results for search");
+
+		lineLength = lineLength == 0 ? 80 : lineLength;
+
+		foreach (JSONValue item; resp["results"].array) {
+			layout ~= format!fmt(
+				item["reference"].str,
+				item["content"].str
+					.wrap(lineLength)
+			);
+		}
+
+		return layout;
+	}
+
+	protected char[]
+	makeRequest(in char[] query)
+	{
+		char[] response;
+		HTTP request;
+
+		response = [];
+		request = HTTP(_url ~ "/" ~ query);
 		request.onProgress = onProgress;
 		request.onReceive =
 			(ubyte[] data)
@@ -331,55 +370,8 @@ class ESVApi
 			};
 		request.addRequestHeader("Authorization", "Token " ~ _key);
 		request.perform();
-		tmpFile = File(_tmp, "w");
-		tmpFile.write(response);
-		return _tmp;
-	}
-	/*
-	 * Requests a passage search for the given query.
-	 * If raw is false, formats the passage search as
-	 * plain text, otherwise returns JSON from the API.
-	 * 
-	 * Example: search("It is finished")
-	 */
-	char[]
-	search(in string query, in bool raw = true)
-	{
-		ulong  i;
-		char[] response;
-		char[] layout;
-		HTTP   request;
-		JSONValue json;
 
-		request = HTTP(format!"%s/search/?q=%s"(
-			_url, query.tr(" ", "+"))
-		);
-		request.onProgress = onProgress;
-		request.onReceive =
-			(ubyte[] data)
-			{
-				response ~= cast(char[])data;
-				return data.length;
-			};
-		request.addRequestHeader("Authorization", "Token " ~ _key);
-		request.perform();
-
-		if (raw)
-			return response;
-
-		json = response.parseJSON();
-		layout = cast(char[])"";
-
-		enforce!ESVException(json["total_results"].integer == 0, "No results for search");
-
-		foreach (ulong i, JSONValue result; json["results"]) {
-			layout ~= format!"%s\n    %s\n"(
-				result["reference"].str,
-				result["content"].str
-			);
-		}
-
-		return layout;
+		return response;
 	}
 }
 
