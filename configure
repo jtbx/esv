@@ -66,13 +66,13 @@ gen_DC () {
 	fi
 	if present ldc2; then
 		dc=ldc2
-		using ldc2
 	elif present dmd; then
 		dc=dmd
-		using dmd
 	else
 		error "D compiler not found; install ldc or dmd"
 	fi
+
+	using "$dc"
 }
 
 ## flags used in the compilation step
@@ -82,24 +82,17 @@ gen_CFLAGS () {
 			ldc2) cflags="-Oz";;
 			 dmd) cflags="-O";;
 		 esac
-		 using "$cflags"
 	else
-		fdebugsymbols="-g"
-		using "$fdebugsymbols"
+		cflags="-g"
 		case "$dc" in
-			ldc2)
-				fdebug="-d-debug"
-				using "$fdebug"
-				foptimisation="-O0"
-				using "$foptimisation"
-				;;
-			 dmd) fdebug="-debug";;
+			ldc2) cflags="$cflags -O0 -d-debug";;
+			 dmd) cflags="$cflags -debug";;
 		esac
-		cflags="$fdebugsymbols $fdebug"
-		unset fdebug
-		unset fdebugsymbols
-		unset foptimisation
 	fi
+
+	for flag in $cflags; do
+		using "$flag"
+	done
 }
 
 ## flags used in the linking step
@@ -107,12 +100,18 @@ gen_LDFLAGS () {
 	if [ "$dc" = ldc2 ]; then
 		if present ld.lld; then
 			ldflags="-linker=lld"
-			using "$ldflags"
 		elif present ld.gold; then
 			ldflags="-linker=gold"
-			using "$ldflags"
 		fi
 	fi
+	if [ -z "$debug" ]; then
+		if ! [ -z "$ldflags" ]; then ldflags="$ldflags "; fi
+		ldflags="$ldflags-L--gc-sections"
+	fi
+
+	for flag in $ldflags; do
+		using "$flag"
+	done
 }
 
 # command line interface
