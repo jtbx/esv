@@ -30,13 +30,17 @@ import std.stdio     : File;
 import std.string    : capitalize, tr, wrap;
 import std.net.curl  : HTTP;
 
+/** Indentation style to use when formatting passages. */
 enum ESVIndent
 {
 	SPACE,
 	TAB
 }
 
-const enum string ESVAPI_URL = "https://api.esv.org/v3/passage";
+/** Default URL to use when sending API requests. */
+enum string ESVAPI_URL = "https://api.esv.org/v3/passage";
+
+/** Constant array of all books in the Bible. */
 const string[] BIBLE_BOOKS = [
 	/* Old Testament */
 	"Genesis",
@@ -108,7 +112,8 @@ const string[] BIBLE_BOOKS = [
 	"Jude",
 	"Revelation"
 ];
-/* All boolean API parameters */
+
+/** All allowed API parameters (for text passages). */
 const string[] ESVAPI_PARAMETERS = [
 	"include-passage-references",
 	"include-verse-numbers",
@@ -131,7 +136,7 @@ const string[] ESVAPI_PARAMETERS = [
 	"indent-using",
 ];
 
-/*
+/**
  * Returns true if the argument book is a valid book of the Bible.
  * Otherwise, returns false.
  */
@@ -144,27 +149,32 @@ bookValid(in char[] book) nothrow @safe
 	}
 	return false;
 }
-/*
- * Returns true if the argument book is a valid verse format.
+/**
+ * Returns true if the argument verse is a valid verse format.
  * Otherwise, returns false.
  */
 bool
 verseValid(in char[] verse) @safe
 {
-	bool
-	vMatch(in string re) @safe
-	{
-		return !verse.matchAll(regex(re)).empty;
+	foreach (string re; [
+		"^\\d{1,3}$",
+		"^\\d{1,3}-\\d{1,3}$",
+		"^\\d{1,3}:\\d{1,3}$",
+		"^\\d{1,3}:\\d{1,3}-\\d{1,3}$"
+	]) {
+        if (!verse.matchAll(regex(re)).empty)
+            return true;
 	}
-	if (vMatch("^\\d{1,3}$") ||
-		vMatch("^\\d{1,3}-\\d{1,3}$") ||
-		vMatch("^\\d{1,3}:\\d{1,3}$") ||
-		vMatch("^\\d{1,3}:\\d{1,3}-\\d{1,3}$"))
-		return true;
 
 	return false;
 }
 
+/**
+ * ESV API object containing the authentication key,
+ * the API URL, any parameters to use when contacting the
+ * API as well as the temporary directory to use when
+ * fetching audio passages.
+ */
 class ESVApi
 {
 	protected {
@@ -173,10 +183,25 @@ class ESVApi
 		string _url;
 	}
 
-	string extraParameters;
-	int delegate(size_t, size_t, size_t, size_t) onProgress;
+    /**
+     * Structure that contains associative arrays for each of
+     * the possible parameter types. Specify API parameters here.
+     */
 	ESVApiOptions opts;
+    /**
+     * Any additional parameters to append to the request.
+     * Must start with an ampersand ('&').
+     */
+	string extraParameters;
+    /**
+     * Callback function that is called whenever progress is made
+     * on a request.
+     */
+	int delegate(size_t, size_t, size_t, size_t) onProgress;
 
+    /**
+     * Constructs an ESVApi object using the given authentication key.
+     */
 	this(string key, string tmpName = "esv")
 	{
 		_key = key;
@@ -184,14 +209,14 @@ class ESVApi
 		_url = ESVAPI_URL;
 		opts = ESVApiOptions(true);
 		extraParameters = "";
-		onProgress = (size_t dlTotal, size_t dlNow,
-					size_t ulTotal, size_t ulNow)
-		{
+		onProgress = delegate int (size_t dlTotal, size_t dlNow,
+			size_t ulTotal, size_t ulNow)
+        {
 			return 0;
 		};
 	}
 
-	/*
+	/**
 	 * Returns the API authentication key that was given when the object
 	 * was constructed. This authentication key cannot be changed.
 	 */
@@ -200,7 +225,7 @@ class ESVApi
 	{
 		return _key;
 	}
-	/*
+	/**
 	 * Returns the subdirectory used to store temporary audio passages.
 	 */
 	@property string
@@ -208,7 +233,7 @@ class ESVApi
 	{
 		return _tmp;
 	}
-	/*
+	/**
 	 * Returns the API URL currently in use.
 	 */
 	@property string
@@ -216,7 +241,7 @@ class ESVApi
 	{
 		return _url;
 	}
-	/*
+	/**
 	 * Sets the API URL currently in use to the given url argument.
 	 */
 	@property void
@@ -225,7 +250,7 @@ class ESVApi
 	{
 		_url = url;
 	}
-	/*
+	/**
 	 * Requests the passage in text format from the API and returns it.
 	 * The (case-insensitive) name of the book being searched are
 	 * contained in the argument book. The verse(s) being looked up are
@@ -239,18 +264,17 @@ class ESVApi
 	in (verseValid(verse), "Invalid verse format")
 	{
 		char[] params, response;
-		HTTP   request;
 
 		params = []; 
 
 		{
-			void *o;
 			string[] parambuf;
 
 			void
 			addParams(R)(R item)
 			{
-				parambuf[parambuf.length] =
+				parambuf.length++;
+				parambuf[parambuf.length - 1] =
 					format!"&%s=%s"(item.key, item.value);
 			}
 
@@ -262,7 +286,7 @@ class ESVApi
 			foreach (item; opts.b.byKeyValue())
 				addParams(item);
 
-			parambuf[parambuf.length] =
+			parambuf[parambuf.length - 1] =
 				format!"&indent-using=%s"(
 					opts.indent_using == ESVIndent.TAB ? "tab" : "space");
 
@@ -279,7 +303,7 @@ class ESVApi
 			verse) ~ params ~ extraParameters);
 		return response.parseJSON()["passages"][0].str;
 	}
-	/*
+	/**
 	 * Requests an audio track of the verse(s) from the API and
 	 * returns a file path containing an MP3 sound track.
 	 * The (case-insensitive) name of the book being searched are
@@ -293,21 +317,18 @@ class ESVApi
 	in (bookValid(book),   "Invalid book")
 	in (verseValid(verse), "Invalid verse format")
 	{
-		char[] response;
 		File tmpFile;
-		HTTP request;
 
-		response = makeRequest(format!"audio/?q=%s+%s"(
+		tmpFile = File(_tmp, "w");
+		tmpFile.write(makeRequest(format!"audio/?q=%s+%s"(
 			book
 				.capitalize()
 				.tr(" ", "+"),
 			verse)
-		);
-		tmpFile = File(_tmp, "w");
-		tmpFile.write(response);
+		));
 		return _tmp;
 	}
-	/*
+	/**
 	 * Requests a passage search for the given query.
 	 * Returns a string containing JSON data representing
 	 * the results of the search.
@@ -317,22 +338,17 @@ class ESVApi
 	char[]
 	search(in string query)
 	{
-		char[] response;
-		HTTP   request;
-		JSONValue json;
-
-		response = makeRequest("search/?q=" ~ query.tr(" ", "+"));
-		return response;
+		return makeRequest("search/?q=" ~ query.tr(" ", "+"));
 	}
-	/*
+	/**
 	 * Calls search() and formats the results nicely as plain text.
 	 */
 	char[]
 	searchFormat(alias fmt = "\033[1m%s\033[0m\n  %s\n")
-		(in string query, int lineLength = 0) /* 0 means default */
+	(in string query, int lineLength = 0) /* 0 means default */
 	{
-		JSONValue resp;
 		char[] layout;
+		JSONValue resp;
 
 		resp = parseJSON(search(query));
 		layout = [];
@@ -375,12 +391,22 @@ class ESVApi
 	}
 }
 
+/**
+ * Structure containing parameters passed to the ESV API.
+ */
 struct ESVApiOptions
 {
+    /** Boolean options */
 	bool[string] b;
+    /** Integer options */
 	int[string] i;
+    /** Indentation style to use when formatting text passages. */
 	ESVIndent indent_using;
 
+    /**
+     * If initialise is true, initialise an ESVApiOptions
+     * structure with the default values.
+     */
 	this(bool initialise) nothrow @safe
 	{
 		if (!initialise)
@@ -408,6 +434,11 @@ struct ESVApiOptions
 	}
 }
 
+/**
+ * Exception thrown on API errors.
+ * Currently only used when there is no search results
+ * following a call of searchFormat.
+ */
 class ESVException : Exception
 {
 	mixin basicExceptionCtors;

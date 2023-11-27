@@ -82,7 +82,6 @@ run(string[] args)
 	ushort lines;
 	string apiKey;
 	string configPath;
-	string configEnvVar;
 	string pager;
 	string verses;
 	Ini iniData;
