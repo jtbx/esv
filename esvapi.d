@@ -162,8 +162,8 @@ verseValid(in char[] verse) @safe
 		"^\\d{1,3}:\\d{1,3}$",
 		"^\\d{1,3}:\\d{1,3}-\\d{1,3}$"
 	]) {
-        if (!verse.matchAll(regex(re)).empty)
-            return true;
+		if (!verse.matchAll(regex(re)).empty)
+			return true;
 	}
 
 	return false;
@@ -183,26 +183,17 @@ class ESVApi
 		string _url;
 	}
 
-    /**
-     * Structure that contains associative arrays for each of
-     * the possible parameter types. Specify API parameters here.
-     */
 	ESVApiOptions opts;
-    /**
-     * Any additional parameters to append to the request.
-     * Must start with an ampersand ('&').
-     */
+
+	/** Additional request parameters */
 	string extraParameters;
-    /**
-     * Callback function that is called whenever progress is made
-     * on a request.
-     */
+	/** Called whenever progress is made on a request. */
 	int delegate(size_t, size_t, size_t, size_t) onProgress;
 
-    /**
-     * Constructs an ESVApi object using the given authentication key.
-     */
-	this(string key, string tmpName = "esv")
+	/**
+	 * Constructs an ESVApi object using the given authentication key.
+	 */
+	this(string key, string tmpName = "esv") @safe
 	{
 		_key = key;
 		_tmp = tempDir() ~ tmpName;
@@ -220,31 +211,31 @@ class ESVApi
 	 * Returns the API authentication key that was given when the object
 	 * was constructed. This authentication key cannot be changed.
 	 */
-	@property string
-	key() const nothrow pure @safe
+	final @property string
+	key() const nothrow pure @nogc @safe
 	{
 		return _key;
 	}
 	/**
 	 * Returns the subdirectory used to store temporary audio passages.
 	 */
-	@property string
-	tmpDir() const nothrow pure @safe
+	final @property string
+	tmpDir() const nothrow pure @nogc @safe
 	{
 		return _tmp;
 	}
 	/**
 	 * Returns the API URL currently in use.
 	 */
-	@property string
-	url() const nothrow pure @safe
+	final @property string
+	url() const nothrow pure @nogc @safe
 	{
 		return _url;
 	}
 	/**
 	 * Sets the API URL currently in use to the given url argument.
 	 */
-	@property void
+	final @property void
 	url(immutable(string) url) @safe
 	in (!url.matchAll(`^https?://.+\\..+(/.+)?`).empty, "Invalid URL format")
 	{
@@ -396,17 +387,14 @@ class ESVApi
  */
 struct ESVApiOptions
 {
-    /** Boolean options */
 	bool[string] b;
-    /** Integer options */
 	int[string] i;
-    /** Indentation style to use when formatting text passages. */
 	ESVIndent indent_using;
 
-    /**
-     * If initialise is true, initialise an ESVApiOptions
-     * structure with the default values.
-     */
+	/**
+	 * If initialise is true, initialise an ESVApiOptions
+	 * structure with the default values.
+	 */
 	this(bool initialise) nothrow @safe
 	{
 		if (!initialise)
@@ -436,6 +424,7 @@ struct ESVApiOptions
 
 /**
  * Exception thrown on API errors.
+ *
  * Currently only used when there is no search results
  * following a call of searchFormat.
  */

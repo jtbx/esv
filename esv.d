@@ -219,7 +219,7 @@ key = %s
 	esv.extraParameters = iniData["api"].getKey("parameters");
 
 	string
-	returnValid(string def, string val)
+	returnValid(string def, string val) @safe
 	{
 		return val == "" ? def : val;
 	}
