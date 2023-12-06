@@ -4,14 +4,14 @@
 
 set -e
 
-IMPORT=import
+import=import
 
 mkf=Makefile
-cflags=-I"$IMPORT"
+cflags='-I'"$import"' -boundscheck=on'
 objs='esv.o esvapi.o'
 srcs='esv.d esvapi.d'
 makefile='
-IMPORT    = '"$IMPORT"'
+IMPORT    = '"$import"'
 PREFIX    = /usr/local
 MANPREFIX = ${PREFIX}/man
 
