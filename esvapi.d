@@ -269,7 +269,6 @@ class ESVApi
 					format!"&%s=%s"(item.key, item.value);
 			}
 
-			/*                    integers        booleans        indent_using */
 			parambuf = new string[opts.i.length + opts.b.length + 1];
 
 			foreach (item; opts.i.byKeyValue())
@@ -418,7 +417,7 @@ struct ESVApiOptions
 		i["indent-declares"]        = 40;
 		i["indent-psalm-doxology"]  = 30;
 		i["line-length"]            = 0;
-		indent_using = ESVIndent.TAB;
+		indent_using = ESVIndent.SPACE;
 	}
 }
 
