@@ -20,11 +20,6 @@ A Psalm of David.
         He makes me lie down in green pastures....
 ```
 
-If the requested passage is over 32 lines long, `esv` will pipe it through
-a pager (default less). The pager being used can be changed through the
-`ESV_PAGER` environment variable or just disabled altogether by passing the
--P option.
-
 The names of Bible books are not case sensitive, so John, john, and JOHN
 are all accepted.
 
@@ -62,11 +57,6 @@ $ ./configure
 $ make
 # make install
 ```
-
-<!--
-By default the configure script looks for ldc and dmd in your PATH
-and optimises the command-line arguments based on the compiler.
--->
 
 ## Documentation
 

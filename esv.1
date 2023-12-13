@@ -24,14 +24,6 @@ to fast-forward, etc. Read about the
 .Fl C
 option in mpg123's manual for more information.
 .Pp
-If a text passage is too long for standard display on a terminal,
-.Nm
-will put it through a text pager (default less) in order for you to be able to
-scroll through the text. This behaviour can be disabled by passing
-the
-.Fl P
-flag.
-.Pp
 The options are as follows:
 .Bl -tag -width keyword
 .It Fl a
@@ -59,9 +51,6 @@ as the maximum line length.
 Exclude verse numbers.
 .It Fl n
 Include verse numbers (the default).
-.It Fl P
-If the passage is over 32 lines long, don't
-pipe it into a pager.
 .It Fl R
 Exclude passage references.
 .It Fl r
@@ -73,11 +62,6 @@ Print the version number and exit.
 .It Ev ESV_CONFIG
 Where to read the configuration file, rather than using the default location (see section
 .Sx FILES ) .
-.It Ev ESV_PAGER
-What pager to use when the passage is over 32 lines long, rather than using
-the
-.Ic less
-utility.
 .It Ev ESV_PLAYER
 What MP3 player to use for playing audio, rather than using mpg123.
 Using mpg123 is recommended over other players such as mpv, because

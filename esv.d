@@ -44,7 +44,6 @@ bool   fFlag, FFlag; /* footnotes */
 bool   hFlag, HFlag; /* headings */
 int    lFlag;        /* line length */
 bool   nFlag, NFlag; /* verse numbers */
-bool   PFlag;        /* disable pager */
 bool   rFlag, RFlag; /* passage references */
 string sFlag;        /* search passages */
 bool   VFlag;        /* show version */
@@ -79,11 +78,8 @@ main(string[] args)
 bool
 run(string[] args)
 {
-	ushort lines;
 	string apiKey;
 	string configPath;
-	string pager;
-	string verses;
 	Ini iniData;
 	ESVApi esv;
 
@@ -98,7 +94,6 @@ run(string[] args)
 			"H", &HFlag, "h", &hFlag,
 			"l", &lFlag,
 			"N", &NFlag, "n", &nFlag,
-			"P", &PFlag,
 			"R", &RFlag, "r", &rFlag,
 			"s", &sFlag,
 			"V", &VFlag,
@@ -126,7 +121,7 @@ run(string[] args)
 	}
 
 	if (args.length < 3) {
-		stderr.writefln("usage: %s [-aFfHhNnPRrV] [-C config] [-l length] [-s query] book verses", args[0].baseName());
+		stderr.writefln("usage: %s [-aFfHhNnRrV] [-C config] [-l length] [-s query] book verses", args[0].baseName());
 		return false;
 	}
 
@@ -259,35 +254,7 @@ key = %s
 	if (RFlag) esv.opts.b["include-passage-references"] = false;
 	if (lFlag != 0) esv.opts.i["line-length"] = lFlag;
 
-	verses = esv.getPassage(args[1].parseBook(), args[2]);
-	foreach (string line; verses.splitLines())
-		++lines;
-
-	/* If the passage is very long, pipe it into a pager */
-	if (lines > 32 && !PFlag) {
-		import std.process : pipeProcess, Redirect, wait, ProcessException;
-
-		pager = environment.get(ENV_PAGER, DEFAULT_PAGER);
-		try {
-			auto pipe = pipeProcess(pager, Redirect.stdin);
-			pipe.stdin.writeln(verses);
-			pipe.stdin.flush();
-			pipe.stdin.close();
-			pipe.pid.wait();
-		} catch (ProcessException e) {
-			enforce(e.msg.matchFirst(regex("^Executable file not found")).empty,
-				format!"%s: command not found"(e.msg
-					.matchFirst(": (.+)$")[0]
-					.replaceFirst(regex("^: "), "")
-				));
-
-			throw new Exception(e.msg); /* catch-all */
-		}
-
-		return true;
-	}
-
-	writeln(verses);
+	writeln(esv.getPassage(args[1].parseBook(), args[2]));
 	return true;
 }
 
