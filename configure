@@ -7,7 +7,7 @@ set -e
 import=import
 
 mkf=Makefile
-cflags='-I'"$import"' -boundscheck=on'
+cflags='-I'"$import"
 objs='esv.o esvapi.o'
 srcs='esv.d esvapi.d'
 makefile='
@@ -17,7 +17,9 @@ MANPREFIX = ${PREFIX}/man
 
 DC      = ${_DC}
 CFLAGS  = ${_CFLAGS}
-OBJS    = ${_OBJS} ini.o
+OBJS    = ${_OBJS} ini.a
+INIOBJS = ${IMPORT}/dini/package.o ${IMPORT}/dini/parser.o \\
+	${IMPORT}/dini/reader.o ${IMPORT}/dini/utils.o 
 
 all: esv
 
@@ -29,11 +31,15 @@ esv: ${OBJS}
 .d.o:
 	${DC} ${CFLAGS} -c $<
 
-ini.o: ${IMPORT}/dini/*.d
-	${DC} ${CFLAGS} -of=ini.o -c ${IMPORT}/dini/*.d
+ini.a: ${IMPORT}/dini/{package,parser,reader,utils}.d
+	${DC} ${CFLAGS} -of=${IMPORT}/dini/package.o -c ${IMPORT}/dini/package.d
+	${DC} ${CFLAGS} -of=${IMPORT}/dini/parser.o -c ${IMPORT}/dini/parser.d
+	${DC} ${CFLAGS} -of=${IMPORT}/dini/reader.o -c ${IMPORT}/dini/reader.d
+	${DC} ${CFLAGS} -of=${IMPORT}/dini/utils.o -c ${IMPORT}/dini/utils.d
+	ar -cr $@ ${INIOBJS}
 
 clean:
-	rm -f esv ${OBJS}
+	rm -f esv ${OBJS} ${INIOBJS}
 
 install: esv
 	install -m755 esv ${DESTDIR}${PREFIX}/bin/esv
