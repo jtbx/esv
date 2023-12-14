@@ -48,13 +48,25 @@ bool   rFlag, RFlag; /* passage references */
 string sFlag;        /* search passages */
 bool   VFlag;        /* show version */
 
+version (OpenBSD) {
+	immutable(char) *promises;
+}
+
 int
 main(string[] args)
 {
 	bool success;
 
+	version (OpenBSD) {
+		import core.sys.openbsd.unistd : pledge;
+		import std.string : toStringz;
+
+		promises = toStringz("stdio rpath wpath cpath inet dns proc exec prot_exec");
+		pledge(promises, null);
+	}
+
 	debug {
-		return run(args);
+		return run(args) ? 0 : 1;
 	}
 
 	try {
